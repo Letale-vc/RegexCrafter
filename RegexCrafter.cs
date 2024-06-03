@@ -38,7 +38,6 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
 
             List<string> exclude = [], include = [];
 
-            // Split the regex pattern into include and exclude parts
             foreach (string part in matches)
             {
                 string trimmedPart = part.Trim('"');
@@ -63,13 +62,6 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
             //         include.Add(trimmedPart);
             //     }
             // }
-            if (Settings.Debug)
-            {
-
-                LogMsg($"Include: {string.Join(", ", include)}");
-                LogMsg($"Exclude: {string.Join(", ", exclude)}");
-            }
-
             return (exclude.ToArray(), include.ToArray());
 
         }
