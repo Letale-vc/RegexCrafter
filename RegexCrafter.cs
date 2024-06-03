@@ -129,6 +129,8 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
         }
         if (Input.IsKeyDown(Settings.StartCraftHotKey.Value) && _currentOperation == null)
         {
+            _currentCraft.BadItems.Clear();
+            _currentCraft.DoneCraftItem.Clear();
             if (PreCraftCheck())
             {
                 _currentOperation = _currentCraft.Start(_cts.Token);
