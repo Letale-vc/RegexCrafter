@@ -71,7 +71,7 @@ public class Scripts
             {
                 if (ct.IsCancellationRequested)
                 {
-                    await CancelCurrencyApplication(ct);
+                    await CleanCancelKey(ct);
                     return false;
                 }
                 var currencyToItemParams = new CurrencyToItemParams
@@ -83,6 +83,7 @@ public class Scripts
                 };
                 if (!await ApplyCurrencyToItem(currencyToItemParams))
                 {
+                    await CleanCancelKey(ct);
                     return false;
                 }
             }
@@ -144,7 +145,7 @@ public class Scripts
             if (hoverItem.Item == null || hoverItem.ItemText == null)
             {
                 Core.LogError($"No Hover item found.");
-                await CancelCurrencyApplication(ct);
+                await CleanCancelKey(ct);
                 return false;
             }
 
@@ -156,7 +157,7 @@ public class Scripts
             if (!Stash.IsHaveItem(currencyType))
             {
                 Core.LogError($"No {currencyType} found.");
-                await CancelCurrencyApplication(ct);
+                await CleanCancelKey(ct);
                 return false;
             }
 
@@ -164,6 +165,17 @@ public class Scripts
         }
 
         return true;
+    }
+
+    public static async SyncTask<bool> CleanCancelKey(CancellationToken ct)
+    {
+        await _inputController.KeyUp(Keys.LControlKey, cancellationToken: ct);
+        await _inputController.KeyUp(Keys.LShiftKey, cancellationToken: ct);
+        await _inputController.KeyDown(Keys.Escape, ct);
+        await _inputController.KeyUp(Keys.Escape, cancellationToken: ct);
+        return true;
+
+
     }
     private static async SyncTask<bool> CancelCurrencyApplication(CancellationToken ct)
     {

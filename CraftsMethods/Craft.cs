@@ -9,17 +9,15 @@ namespace RegexCrafter.Methods;
 
 public abstract class Craft
 {
-    private static Settings _settings;
+    private static RegexCrafter Core;
 
-    public static Settings Settings => _settings;
-    private static (string[] Exclude, string[] Include) _parsedPattern;
+    public static Settings Settings => Core.Settings;
     public abstract string Name { get; }
     public List<CustomItemData> BadItems = [];
     public List<CustomItemData> DoneCraftItem = [];
     public static void Init(RegexCrafter core)
     {
-        _settings = core.Settings;
-        _parsedPattern = core.ParsedPattern;
+        Core = core;
     }
 
     public virtual void DrawSettings()
@@ -28,15 +26,28 @@ public abstract class Craft
     }
     public bool RegexCondition((CustomItemData Item, string Text) hoverItem)
     {
-        var excludeResult = RegexUtils.MatchesAnyPattern(hoverItem.Text, _parsedPattern.Exclude);
-        var includeResult = RegexUtils.MatchesAllPatterns(hoverItem.Text, _parsedPattern.Include);
-        var result = !excludeResult && includeResult;
-        if (result)
+
+        if (RegexUtils.MatchesAnyPattern(hoverItem.Text, Core.ParsedPattern.Exclude, out var applyPatterns))
         {
-            DoneCraftItem.Add(hoverItem.Item);
+            if (Core.Settings.Debug)
+            {
+                Core.LogMessage($"Excluded: {string.Join(", ", applyPatterns)} \n");
+            }
+            return false;
         }
-        return result;
+        else if (RegexUtils.MatchesAllPatterns(hoverItem.Text, Core.ParsedPattern.Include, out var applyPatterns2))
+        {
+
+            if (Core.Settings.Debug)
+            {
+                Core.LogMsg($"Included: {string.Join(", ", applyPatterns2)} \n");
+            }
+            DoneCraftItem.Add(hoverItem.Item);
+            return true;
+        }
+        return false;
     }
+
     public abstract SyncTask<bool> Start(CancellationToken ct);
 
     public override string ToString()
