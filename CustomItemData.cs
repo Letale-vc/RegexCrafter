@@ -10,7 +10,7 @@ namespace RegexCrafter;
 
 public class CustomItemData
 {
-    private static RegexCraft Core;
+    private static RegexCrafter Core;
     public Entity Entity;
     public string BaseName;
     public string ClassName;
@@ -21,7 +21,7 @@ public class CustomItemData
     public ItemRarity Rarity;
     public bool IsMap;
     public bool IsT17Map;
-    public static void InitCustomItem(RegexCraft core)
+    public static void Init(RegexCrafter core)
     {
         Core = core;
     }
@@ -29,8 +29,6 @@ public class CustomItemData
     {
         try
         {
-
-
             Entity = inventoryItem.Item;
             var baseItemType = Core.GameController.Files.BaseItemTypes.Translate(inventoryItem.Item.Path);
             ClassName = baseItemType?.ClassName ?? string.Empty;

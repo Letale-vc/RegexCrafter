@@ -1,4 +1,4 @@
-﻿namespace RegexCrafter;
+﻿namespace RegexCrafter.Utils;
 
 public struct CurrencyType
 {

@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 
 
-namespace RegexCrafter;
+namespace RegexCrafter.Utils;
 
 internal class Mouse
 {

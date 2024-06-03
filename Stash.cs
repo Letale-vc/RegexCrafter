@@ -4,36 +4,27 @@ using System.Linq;
 
 namespace RegexCrafter;
 
-public class Stash(RegexCraft core)
+public class Stash
 {
-    private RegexCraft _core = core;
-    public RegexCraft Core { get => _core; set => _core = value; }
-    public bool IsVisible => Core.GameController.Game.IngameState.IngameUi.StashElement.IsVisible;
-    public InventoryType InventoryType => Core.GameController.Game.IngameState.IngameUi.StashElement.VisibleStash.InvType;
-    public string StashTabName => Core.GameController.Game.IngameState.IngameUi.StashElement.GetStashName(Core.GameController.Game.IngameState.IngameUi.StashElement.IndexVisibleStash);
-    public List<CustomItemData> ItemsInStashTab
-    {
-        get
-        {
-            if (IsVisible)
-            {
-                return Core.GameController.Game.IngameState.IngameUi.StashElement.VisibleStash.VisibleInventoryItems.Select(x => new CustomItemData(x)).ToList();
-            }
-            return [];
-        }
-    }
+    private static RegexCrafter Core;
+    public static void Init(RegexCrafter core) => Core = core;
 
-    public bool IsPublicTabNow
+    public static bool IsVisible => Core.GameController.Game.IngameState.IngameUi.StashElement.IsVisible;
+    public static InventoryType InventoryType => Core.GameController.Game.IngameState.IngameUi.StashElement.VisibleStash.InvType;
+    public static string VisibleTabName => Core.GameController.Game.IngameState.IngameUi.StashElement.GetStashName(Core.GameController.Game.IngameState.IngameUi.StashElement.IndexVisibleStash);
+    public static List<CustomItemData> VisibleTabItems => Core.GameController.Game.IngameState.IngameUi.StashElement.VisibleStash.VisibleInventoryItems.Select(x => new CustomItemData(x)).ToList();
+
+    public static bool IsPublicVisibleTab
     {
         get
         {
             var playerStashTabs = Core.GameController.Game.IngameState.ServerData.PlayerStashTabs;
-            var tab = playerStashTabs.First(x => x.Name == StashTabName);
+            var tab = playerStashTabs.First(x => x.Name == VisibleTabName);
             return tab.Flags.HasFlag(InventoryTabFlags.Public);
         }
     }
 
-    public bool IsHaveItem(string baseName)
+    public static bool IsHaveItem(string baseName)
     {
         if (!IsVisible)
         {
@@ -43,7 +34,7 @@ public class Stash(RegexCraft core)
             .Select(x => new CustomItemData(x))
             .Any(x => x.BaseName == baseName);
     }
-    public bool TryGetItem(string baseName, out CustomItemData item)
+    public static bool TryGetItem(string baseName, out CustomItemData item)
     {
         if (!IsVisible)
         {
