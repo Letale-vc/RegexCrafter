@@ -78,6 +78,7 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
         Stash.Init(this);
         Craft.Init(this);
         Scripts.Init(this);
+        PlayerInventory.Init(this);
 
         return base.Initialise();
     }
@@ -135,9 +136,6 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
         }
     }
 
-
-
-
     private bool PreCraftCheck()
     {
         if (string.IsNullOrEmpty(RegexInputPattern))
@@ -157,8 +155,6 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
         }
         return true;
     }
-
-
 }
 
 
