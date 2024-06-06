@@ -8,16 +8,22 @@ using RegexCrafter.Utils;
 
 namespace RegexCrafter.Methods;
 
-public class Map : Craft
+public class MapState : CraftState
 {
+	public bool IsT17MapCrafting = false;
+	public bool UseAddQuality = true;
+}
+
+public class Map(RegexCrafter core) : Craft<MapState>(core)
+{
+	public override MapState CraftState { get; set; } = new();
 	public override string Name { get; } = "Map";
-	private bool IsT17MapCrafting = false;
-	private bool UseAddQuality = true;
 
 	public override void DrawSettings()
 	{
-		ImGui.Checkbox("Is T17 Map Crafting", ref IsT17MapCrafting);
-		ImGui.Checkbox("Use Add Quality", ref UseAddQuality);
+		ImGui.Checkbox("Is T17 Map Crafting", ref CraftState.IsT17MapCrafting);
+		ImGui.Checkbox("Use Add Quality", ref CraftState.UseAddQuality);
+		base.DrawSettings();
 	}
 
 	public override async SyncTask<bool> Start(CancellationToken ct)
@@ -51,7 +57,7 @@ public class Map : Craft
 		}
 
 		// apply orb of scouring
-		if (!IsT17MapCrafting)
+		if (!CraftState.IsT17MapCrafting)
 		{
 			var needScouring = nonCorruptedMaps.Where(x => (x.Rarity == ItemRarity.Rare && x.Quality < 20) || x.Rarity == ItemRarity.Magic).ToList();
 			if (needScouring.Count != 0)
@@ -71,7 +77,7 @@ public class Map : Craft
 		}
 
 		// apply cartographers chisel
-		if (UseAddQuality && !IsT17MapCrafting)
+		if (CraftState.UseAddQuality && !CraftState.IsT17MapCrafting)
 		{
 			var needAddQuality = nonCorruptedMaps.Where(x => !DoneCraftItem.Any(item => item.Entity.Address == x.Entity.Address) && x.Quality < 20).ToList();
 			if (needAddQuality.Count != 0)
