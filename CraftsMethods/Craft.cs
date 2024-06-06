@@ -51,7 +51,16 @@ public abstract class Craft<State> : ICraft where State : CraftState
 	}
 	public void UpdateState(State state)
 	{
-		StateList.Add(state);
+
+
+		if (StateList.Any(x => x.Name == state.Name))
+		{
+			StateList.FirstOrDefault(x => x.Name == state.Name).RegexPatterns = state.RegexPatterns;
+		}
+		else
+		{
+			StateList.Add(state);
+		}
 		File.WriteAllText(PathFileState, JsonConvert.SerializeObject(StateList, Formatting.Indented));
 		Core.LogMessage($"Update file: {PathFileState}");
 	}
