@@ -14,10 +14,11 @@ using ExileCore.Shared.Enums;
 
 namespace RegexCrafter.Methods;
 
-public class CraftState
+public class CraftState : ICloneable
 {
 	public string Name = string.Empty;
 	public List<string> RegexPatterns = [];
+	public object Clone() => this.MemberwiseClone();
 }
 public interface ICraft
 {
@@ -31,8 +32,8 @@ public interface ICraft
 
 public abstract class Craft<State> : ICraft where State : CraftState
 {
-	private static RegexCrafter Core;
-	public static Settings Settings => Core.Settings;
+	public RegexCrafter Core;
+	public Settings Settings => Core.Settings;
 	public abstract State CraftState { get; set; }
 	public abstract string Name { get; }
 	public List<CustomItemData> BadItems { get; } = [];
@@ -51,8 +52,6 @@ public abstract class Craft<State> : ICraft where State : CraftState
 	}
 	public void UpdateState(State state)
 	{
-
-
 		if (StateList.Any(x => x.Name == state.Name))
 		{
 			StateList.FirstOrDefault(x => x.Name == state.Name).RegexPatterns = state.RegexPatterns;
@@ -87,7 +86,7 @@ public abstract class Craft<State> : ICraft where State : CraftState
 		ImGui.SameLine();
 		if (ImGui.Button("Load State"))
 		{
-			CraftState = StateList[_stateIndex];
+			CraftState = (State)StateList[_stateIndex].Clone();
 		}
 		ImGui.SameLine();
 		if (ImGui.Button("Remove State"))
@@ -99,6 +98,12 @@ public abstract class Craft<State> : ICraft where State : CraftState
 		if (ImGui.Button("Save Current State"))
 		{
 			UpdateState(CraftState);
+		}
+		ImGui.SameLine();
+		if (ImGui.Button("Reset State"))
+		{
+			CraftState.Name = string.Empty;
+			CraftState.RegexPatterns = [];
 		}
 		ImGui.Separator();
 		if (CraftState.RegexPatterns.Count == 0)
