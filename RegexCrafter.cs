@@ -20,7 +20,6 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
 
 	private static readonly List<ICraft> _craftList = [];
 	private int _craftIndex = 0;
-	private string RegexInputPattern = string.Empty;
 	private CancellationTokenSource _cts;
 	private SyncTask<bool> _currentOperation;
 
@@ -84,6 +83,10 @@ public partial class RegexCrafter : BaseSettingsPlugin<Settings>
 			{
 				_cts = new CancellationTokenSource();
 				_currentOperation = _craftList[_craftIndex].Start(_cts.Token);
+			}
+			else
+			{
+				LogError("Craft failed.");
 			}
 		}
 	}
