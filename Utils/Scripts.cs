@@ -11,6 +11,7 @@ using ExileCore.PoEMemory.Elements.InventoryElements;
 using ExileCore.PoEMemory.Elements;
 using ExileCore.Shared.Enums;
 using System.Threading;
+using ExileCore;
 
 namespace RegexCrafter.Utils;
 
@@ -65,13 +66,17 @@ public class Scripts
 
 		using (_inputController)
 		{
-			await PrepareCurrency(currency);
+			if (!await TakeItemUse(currency, ct))
+			{
+				Core.LogError($"Can't take {currencyType}.");
+				return false;
+			}
 
 			foreach (var item in items)
 			{
 				if (ct.IsCancellationRequested)
 				{
-					await CleanCancelKey();
+					Core.LogError($"Cancelling currency application.");
 					return false;
 				}
 				var currencyToItemParams = new CurrencyToItemParams
@@ -83,7 +88,7 @@ public class Scripts
 				};
 				if (!await ApplyCurrencyToItem(currencyToItemParams))
 				{
-					await CleanCancelKey();
+					Core.LogError($"Can't apply {currencyType} to item.");
 					return false;
 				}
 			}
@@ -94,10 +99,15 @@ public class Scripts
 
 	public static async SyncTask<bool> CopiedHoverItemToClipboard()
 	{
-		await _inputController.KeyDown(Keys.LControlKey);
-		await _inputController.KeyDown(Keys.C);
-		await _inputController.KeyUp(Keys.C);
-		await _inputController.KeyUp(Keys.LControlKey);
+		using (_inputController)
+		{
+			await _inputController.KeyDown(Keys.LControlKey);
+			await _inputController.KeyDown(Keys.C);
+			await _inputController.KeyUp(Keys.C);
+			await _inputController.KeyUp(Keys.LControlKey);
+
+		}
+
 		return true;
 	}
 	public static async SyncTask<bool> MoveMouse(
@@ -150,14 +160,12 @@ public class Scripts
 
 		while (!ct.IsCancellationRequested)
 		{
-			await Wait();
 			await CopiedHoverItemToClipboard();
 			var hoverItem = GetHoveredItem();
 
 			if (hoverItem.Item == null || hoverItem.ItemText == null)
 			{
 				Core.LogError($"No Hover item found.");
-				await CleanCancelKey();
 				return false;
 			}
 
@@ -169,11 +177,11 @@ public class Scripts
 			if (!Stash.IsHaveItem(currencyType))
 			{
 				Core.LogError($"No {currencyType} found.");
-				await CleanCancelKey();
 				return false;
 			}
 
-			await Click(MouseButtons.Left, item.Position);
+			if (Core.Settings.UseRandomPosition) await Click(MouseButtons.Left, item.Position);
+			else await Click(MouseButtons.Left);
 		}
 		return true;
 	}
@@ -189,8 +197,11 @@ public class Scripts
 				await _inputController.KeyUp(Keys.LShiftKey);
 				await _inputController.KeyUp(System.Windows.Forms.Keys.RButton);
 				await _inputController.KeyUp(System.Windows.Forms.Keys.LButton);
-				await _inputController.KeyDown(Keys.Escape);
-				await _inputController.KeyUp(Keys.Escape);
+				if (Core.GameController.Game.IngameState.IngameUi.Cursor.Action == MouseActionType.UseItem)
+				{
+					await _inputController.KeyDown(Keys.Escape);
+					await _inputController.KeyUp(Keys.Escape);
+				}
 			}
 			Core.LogMsg("Cleaned keys.");
 		}
@@ -206,12 +217,19 @@ public class Scripts
 		await _inputController.KeyUp(Keys.LShiftKey);
 		return true;
 	}
-	private static async SyncTask<bool> PrepareCurrency(
-		CustomItemData currency)
+	private static async SyncTask<bool> TakeItemUse(
+		CustomItemData item, CancellationToken ct)
 	{
-		await Click(MouseButtons.Right, currency.Position);
-		await _inputController.KeyDown(Keys.LShiftKey);
-		return true;
+		while (!ct.IsCancellationRequested)
+		{
+			await Click(MouseButtons.Right, item.Position);
+			await _inputController.KeyDown(Keys.LShiftKey, ct);
+			if (Core.GameController.Game.IngameState.IngameUi.Cursor.Action == MouseActionType.UseItem)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 	public static (CustomItemData Item, string ItemText) GetHoveredItem()
 	{
