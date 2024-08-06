@@ -6,7 +6,7 @@ public class RegexUtils
 {
 	public static bool MatchesPattern(string text, string pattern)
 	{
-		var regex = new Regex(pattern, RegexOptions.IgnoreCase);
+		var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
 		return regex.IsMatch(text);
 	}
 
