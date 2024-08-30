@@ -120,7 +120,7 @@ public abstract class Craft<State> : ICraft where State : CraftState
 			tempPatterns[i] = pattern;
 			if (ImGui.Button("Remove"))
 			{
-				tempPatterns.RemoveAt(i);
+				tempPatterns.Remove(pattern);
 			}
 		}
 		CraftState.RegexPatterns = tempPatterns;

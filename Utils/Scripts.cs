@@ -1,5 +1,3 @@
-
-
 using System;
 using ExileCore.Shared;
 using InputHumanizer.Input;
@@ -113,7 +111,7 @@ public class Scripts
 	public static async SyncTask<bool> MoveMouse(
 		 SharpDX.RectangleF rec)
 	{
-		var position = Core.Settings.UseRandomPosition ? rec.ClickRandomNum(20, 20) : rec.Center.ToVector2Num();
+		var position = rec.ClickRandomNum(20, 20);
 		position += WindowOffset.ToVector2Num();
 		await _inputController.MoveMouse(position);
 		return true;
@@ -165,7 +163,7 @@ public class Scripts
 
 			if (hoverItem.Item == null || hoverItem.ItemText == null)
 			{
-				Core.LogError($"No Hover item found.");
+				Core.LogError($"Hover item not found.");
 				return false;
 			}
 
@@ -197,11 +195,11 @@ public class Scripts
 				await _inputController.KeyUp(Keys.LShiftKey);
 				await _inputController.KeyUp(System.Windows.Forms.Keys.RButton);
 				await _inputController.KeyUp(System.Windows.Forms.Keys.LButton);
-				if (Core.GameController.Game.IngameState.IngameUi.Cursor.Action == MouseActionType.UseItem)
-				{
-					await _inputController.KeyDown(Keys.Escape);
-					await _inputController.KeyUp(Keys.Escape);
-				}
+				// if (Core.GameController.Game.IngameState.IngameUi.Cursor.Action == MouseActionType.UseItem)
+				// {
+				// 	await _inputController.KeyDown(Keys.Escape);
+				// 	await _inputController.KeyUp(Keys.Escape);
+				// }
 			}
 			Core.LogMsg("Cleaned keys.");
 		}
@@ -263,8 +261,9 @@ public class Scripts
 				}
 			}
 		}
-		catch
+		catch (Exception ex)
 		{
+			Core.LogError($"{ex.Message}"); ;
 			return (null, null);
 		}
 		return (null, null);

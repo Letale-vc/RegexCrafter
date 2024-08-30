@@ -98,7 +98,7 @@ public class Map(RegexCrafter core) : Craft<MapState>(core)
 		}
 
 		// apply cartographers chisel
-		if (CraftState.UseAddQuality && !CraftState.IsT17MapCrafting)
+		if (CraftState.UseAddQuality)
 		{
 			var needAddQuality = nonCorruptedMaps.Where(x => !DoneCraftItem.Any(item => item.Entity.Address == x.Entity.Address) && x.Quality < 20).ToList();
 			if (needAddQuality.Count != 0)
