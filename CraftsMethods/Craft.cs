@@ -61,6 +61,10 @@ public abstract class Craft<State> : ICraft where State : CraftState
 		{
 			StateList.Add(state);
 		}
+		UpdateFileState();
+	}
+	public void UpdateFileState()
+	{
 		File.WriteAllText(PathFileState, JsonConvert.SerializeObject(StateList, Formatting.Indented));
 		Core.LogMessage($"Update file: {PathFileState}");
 	}
@@ -93,6 +97,7 @@ public abstract class Craft<State> : ICraft where State : CraftState
 		if (ImGui.Button("Remove State"))
 		{
 			StateList.RemoveAt(_stateIndex);
+			UpdateFileState();
 		}
 		ImGui.Separator();
 		_ = ImGui.InputText("State Name", input: ref CraftState.Name, 100);
@@ -117,9 +122,12 @@ public abstract class Craft<State> : ICraft where State : CraftState
 		for (int i = 0; i < CraftState.RegexPatterns.Count; i++)
 		{
 			string pattern = CraftState.RegexPatterns[i];
-			ImGui.InputText($"Your regex pattern {i}", ref pattern, 1024);
+			if (ImGui.InputText($"Your regex pattern {i}", ref pattern, 1024))
+			{
+				CraftState.RegexPatterns[i] = pattern;
+			}
 			ImGui.SameLine();
-			if (ImGui.Button("Remove"))
+			if (ImGui.Button($"Remove##{i}"))
 			{
 				if (Settings.Debug)
 				{
