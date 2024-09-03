@@ -10,6 +10,7 @@ using System.Linq;
 using System;
 using System.Text.RegularExpressions;
 using ExileCore.Shared.Enums;
+using MoreLinq.Extensions;
 
 
 namespace RegexCrafter.Methods;
@@ -111,19 +112,28 @@ public abstract class Craft<State> : ICraft where State : CraftState
 			CraftState.RegexPatterns.Add(string.Empty);
 		}
 
-		var tempPatterns = new List<string>(CraftState.RegexPatterns);
-		for (int i = 0; i < tempPatterns.Count; i++)
+		var removePatternList = new List<int>();
+
+		for (int i = 0; i < CraftState.RegexPatterns.Count; i++)
 		{
-			string pattern = tempPatterns[i];
+			string pattern = CraftState.RegexPatterns[i];
 			ImGui.InputText($"Your regex pattern {i}", ref pattern, 1024);
 			ImGui.SameLine();
-			tempPatterns[i] = pattern;
 			if (ImGui.Button("Remove"))
 			{
-				tempPatterns.Remove(pattern);
+				if (Settings.Debug)
+				{
+					Core.LogMessage($"Remove pattern:{pattern}");
+
+				}
+				removePatternList.Add(i);
 			}
 		}
-		CraftState.RegexPatterns = tempPatterns;
+
+		foreach (var idx in removePatternList.OrderByDescending(x => x))
+		{
+			CraftState.RegexPatterns.RemoveAt(idx);
+		}
 
 		if (ImGui.Button("Add Regex Pattern"))
 		{
