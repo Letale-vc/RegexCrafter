@@ -1,4 +1,5 @@
-﻿using ExileCore.Shared.Enums;
+﻿using ExileCore.PoEMemory;
+using ExileCore.Shared.Enums;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -45,6 +46,25 @@ public class Stash
 				.Select(x => new CustomItemData(x))
 				.FirstOrDefault(x => x.BaseName == baseName);
 		return item != null;
+	}
+
+	public static bool TryGetCurrencyButton(string text, out Element element)
+	{
+		element = Core.GameController.IngameState.IngameUi.StashElement.VisibleStash.FindChildRecursive(x => x.Text == text);
+		if (element == null)
+		{
+			if (Core.Settings.Debug)
+			{
+				Core.LogError($"Not find button {text}");
+			}
+			return false;
+		}
+
+		if (Core.Settings.Debug)
+		{
+			Core.LogMessage($"Find button {element.Text}");
+		}
+		return true;
 	}
 
 

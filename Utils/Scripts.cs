@@ -10,6 +10,7 @@ using ExileCore.PoEMemory.Elements;
 using ExileCore.Shared.Enums;
 using System.Threading;
 using ExileCore;
+using ExileCore.PoEMemory;
 
 namespace RegexCrafter.Utils;
 
@@ -54,16 +55,34 @@ public class Scripts
 	}
 	public static async SyncTask<bool> ApplyCurrencyToInventoryItems(CurrencyApplicationParameters parameters)
 	{
-		var (items, currencyType, condition, ct) = parameters;
-
-		if (!Stash.TryGetItem(currencyType, out var currency))
-		{
-			Core.LogError($"No {currencyType} found.");
-			return false;
-		}
-
 		using (_inputController)
 		{
+			var (items, currencyType, condition, ct) = parameters;
+			if (!Stash.TryGetItem(currencyType, out CustomItemData currency))
+			{
+				if (CurrencyNames.GetCurrencyType(currencyType) == CurrencyType.General && Stash.TryGetCurrencyButton("General", out Element generalButton))
+				{
+					// var position = generalButton.GetClientRect().Center.ToVector2Num() + WindowOffset.ToVector2Num();
+					await Click(MouseButtons.Left, generalButton.GetClientRect());
+					// await _inputController.Click(MouseButtons.Left, position);
+				}
+				else if (CurrencyNames.GetCurrencyType(currencyType) == CurrencyType.Exotic && Stash.TryGetCurrencyButton("Exotic", out Element exoticButton))
+				{
+					// var position = exoticButton.GetClientRect().Center.ToVector2Num() + WindowOffset.ToVector2Num();
+
+					// await _inputController.Click(MouseButtons.Left, position);	
+					await Click(MouseButtons.Left, exoticButton.GetClientRect());
+				}
+
+			}
+
+			if (!Stash.TryGetItem(currencyType, out currency))
+			{
+				Core.LogError($"No {currencyType} found.");
+				return false;
+
+			}
+
 			if (!await TakeItemUse(currency, ct))
 			{
 				Core.LogError($"Can't take {currencyType}.");

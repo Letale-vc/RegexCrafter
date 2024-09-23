@@ -55,7 +55,9 @@ public abstract class Craft<State> : ICraft where State : CraftState
 	{
 		if (StateList.Any(x => x.Name == state.Name))
 		{
-			StateList.FirstOrDefault(x => x.Name == state.Name).RegexPatterns = state.RegexPatterns;
+			var idx = StateList.FindIndex(x => x.Name == state.Name);
+			StateList[idx] = state;
+
 		}
 		else
 		{
@@ -227,6 +229,7 @@ public abstract class Craft<State> : ICraft where State : CraftState
 		}
 		return false;
 	}
+
 	public abstract SyncTask<bool> Start(CancellationToken ct);
 	public override string ToString()
 	{
