@@ -6,33 +6,24 @@ using ExileCore.Shared.Enums;
 using ImGuiNET;
 using RegexCrafter.Helpers;
 using RegexCrafter.Helpers.Enums;
-using RegexCrafter.Utils;
 
 namespace RegexCrafter.CraftsMethods;
 
-public class MapState : CraftState
+public class DefaultCraftState : CraftState
 {
     public CurrencyMethodCraftType CurrencyMethodCraftTypeMethodCraft = CurrencyMethodCraftType.Chaos;
-    public int TypeChisel;
-    public bool UseAddQuality = true;
 }
 
-public class Map(RegexCrafter core) : Craft<MapState>(core)
+public class DefaultCraft(RegexCrafter core) : Craft<DefaultCraftState>(core)
 {
-    private const string LogName = "CraftMap";
-
-    private readonly string[] _chiselList =
-    [
-        CurrencyNames.CartographersChisel, CurrencyNames.ChiselOfProliferation, CurrencyNames.ChiselOfProcurement,
-        CurrencyNames.ChiselOfScarabs, CurrencyNames.ChiselOfDivination, CurrencyNames.ChiselOfAvarice
-    ];
+    private const string LogName = "Default Craft";
 
     private readonly CurrencyMethodCraftType[] _typeMethodCraft =
         [CurrencyMethodCraftType.Chaos, CurrencyMethodCraftType.ScouringAndAlchemy];
 
-    public override MapState CraftState { get; set; } = new();
+    public override DefaultCraftState CraftState { get; set; } = new();
 
-    public override string Name { get; } = "Map";
+    public override string Name { get; } = "Default craft";
 
     public override void DrawSettings()
     {
@@ -41,14 +32,11 @@ public class Map(RegexCrafter core) : Craft<MapState>(core)
         if (ImGui.Combo("Type Method craft", ref selectedMethod,
                 _typeMethodCraft.Select(x => x.GetDescription()).ToArray(), _typeMethodCraft.Length))
             CraftState.CurrencyMethodCraftTypeMethodCraft = (CurrencyMethodCraftType)selectedMethod;
-        ImGui.Checkbox("Use Add Quality", ref CraftState.UseAddQuality);
-        ImGui.Combo("Type chisel", ref CraftState.TypeChisel, _chiselList, _chiselList.Length);
+        ImGui.Dummy(new Vector2(0, 10));
         ImGui.Separator();
+        ImGui.Dummy(new Vector2(0, 10));
         if (CraftState.RegexPatterns.Count == 0) CraftState.RegexPatterns.Add(string.Empty);
-        ImGui.Dummy(new Vector2(0, 10));
-        ImGui.Separator();
-        ImGui.Dummy(new Vector2(0, 10));
-        ImGui.LabelText("##MainConditionsMap", "Main Conditions");
+        ImGui.Dummy(new Vector2(0, 20));
         for (var i = 0; i < CraftState.RegexPatterns.Count; i++)
         {
             var patternTemp = CraftState.RegexPatterns[i];
@@ -67,11 +55,6 @@ public class Map(RegexCrafter core) : Craft<MapState>(core)
     public override async SyncTask<bool> Start()
     {
         if (!await CurrencyUseHelper.IdentifyItems()) return false;
-
-        // apply chisel
-        if (CraftState.UseAddQuality && !await Scripts.UseCurrencyOnMultipleItems(_chiselList[CraftState.TypeChisel],
-                x => x.IsMap && !x.IsCorrupted, RegexQualityCondition)) return false;
-
         switch (CraftState.CurrencyMethodCraftTypeMethodCraft)
         {
             case CurrencyMethodCraftType.Chaos:
@@ -84,30 +67,22 @@ public class Map(RegexCrafter core) : Craft<MapState>(core)
         }
     }
 
-    private bool RegexQualityCondition(InventoryItemData item)
-    {
-        return _chiselList[CraftState.TypeChisel] switch
-        {
-            CurrencyNames.CartographersChisel => RegexUtils.MatchesPattern(item.ClipboardText, "lity:.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfAvarice => RegexUtils.MatchesPattern(item.ClipboardText, "urr.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfDivination => RegexUtils.MatchesPattern(item.ClipboardText, "div.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfProcurement => RegexUtils.MatchesPattern(item.ClipboardText, "ty\\).*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfScarabs => RegexUtils.MatchesPattern(item.ClipboardText, "sca.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfProliferation =>
-                RegexUtils.MatchesPattern(item.ClipboardText, "ze\\).*([2-9].|1..)%"),
-            _ => RegexUtils.MatchesPattern(item.ClipboardText, "Quality:*.*([2-9].|1..)%")
-        };
-    }
-
     private async SyncTask<bool> ScouringAndAlchemy()
     {
         if (Settings.CraftPlace == CraftPlaceType.MousePosition)
         {
-            if (!Scripts.TryGetHoveredItem(out var item)) return false;
-            if (item.IsCorrupted || !item.IsMap) return false;
-            if (CraftState.UseAddQuality &&
-                !await Scripts.UseCurrencyToSingleItem(item, _chiselList[CraftState.TypeChisel], RegexQualityCondition))
+            var (isSuccess, item) = await Scripts.WaitForHoveredItem(
+                hoverItem => hoverItem != null,
+                "Get the initial hovered item");
+
+            if (!isSuccess)
+            {
+                GlobalLog.Error("### No hovered item found!", LogName);
                 return false;
+            }
+
+            if (item.IsCorrupted) return false;
+
             if (RegexCondition(item)) return true;
             while (!RegexCondition(item))
             {
@@ -127,7 +102,7 @@ public class Map(RegexCrafter core) : Craft<MapState>(core)
             return true;
         }
 
-        var maps = await GetValidMaps();
+        var maps = await GetValidItem();
 
         if (maps == null) return false;
 
@@ -140,37 +115,26 @@ public class Map(RegexCrafter core) : Craft<MapState>(core)
             // apply orb of alchemy
             if (!await CurrencyUseHelper.AlchemyItems(RegexCondition)) return false;
 
-            maps = await GetValidMaps();
+            maps = await GetValidItem();
             if (maps == null) return false;
         }
 
         return true;
     }
 
-    private SyncTask<List<InventoryItemData>> GetValidMaps()
+    private SyncTask<List<InventoryItemData>> GetValidItem()
     {
         return Scripts.TryGetUsedItems(x =>
-            DoneCraftItem.All(s => s.Entity.Address != x.Entity.Address) && !x.IsCorrupted && x.IsMap);
+            DoneCraftItem.All(s => s.Entity.Address != x.Entity.Address) && !x.IsCorrupted);
     }
 
     private async SyncTask<bool> ChaosSpam()
     {
         if (Settings.CraftPlace == CraftPlaceType.MousePosition)
         {
-            var (isSuccess, item) = await Scripts.WaitForHoveredItem(
-                hoverItem => hoverItem != null,
-                "Get the initial hovered item");
+            if (!Scripts.TryGetHoveredItem(out var item)) return false;
+            if (item.IsCorrupted) return false;
 
-            if (!isSuccess)
-            {
-                GlobalLog.Error("### No hovered item found!", LogName);
-                return false;
-            }
-
-            if (item.IsCorrupted || !item.IsMap) return false;
-            if (CraftState.UseAddQuality &&
-                !await Scripts.UseCurrencyToSingleItem(item, _chiselList[CraftState.TypeChisel], RegexQualityCondition))
-                return false;
             if (RegexCondition(item)) return true;
 
             switch (item.Rarity)
