@@ -1,12 +1,12 @@
-﻿using System;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 namespace RegexCrafter.Helpers;
 
 public enum CurrencyMethodCraftType
 {
     [Description("Chaos Orb")] Chaos,
-    [Description("Scouring and Alchemy")] ScouringAndAlchemy
+    [Description("Scouring and Alchemy")] ScouringAndAlchemy,
+    [Description("Alteration spam")] AlterationSpam
 }
 
 // public static class EnumExtensions

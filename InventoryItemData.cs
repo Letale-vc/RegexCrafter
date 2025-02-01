@@ -22,8 +22,12 @@ public partial class InventoryItemData
     public string ClassName;
     public string ClipboardText = string.Empty;
     public List<string> CustomTextLines;
+    public int DeliriumOrbNumber;
+    public List<string> EnchantedStats;
     public Entity Entity;
+    public int ExplicitModsCount;
     public RectangleF GetClientRectCache;
+    public List<string> HumanCraftStats;
     public List<string> HumanImpStats;
     public List<string> HumanStats;
     public bool IsCorrupted;
@@ -36,6 +40,7 @@ public partial class InventoryItemData
     public bool IsShaper;
     public bool IsSynthesized;
     public bool IsT17Map;
+
 
     public bool IsWarlord;
 
@@ -89,7 +94,12 @@ public partial class InventoryItemData
                 if (mods.RequiredLevel > 0) Requirements.Add($"Level {mods.RequiredLevel}");
                 HumanStats = mods.HumanStats;
                 HumanImpStats = mods.HumanImpStats;
+                HumanCraftStats = mods.HumanCraftedStats;
+                EnchantedStats = mods.EnchantedStats;
+                ExplicitModsCount = mods.ExplicitMods.Count;
             }
+
+            if (EnchantedStats != null) DeliriumOrbNumber = EnchantedStats.Count(x => x.Contains("Delirium Reward"));
 
             MapTier = Entity.TryGetComponent<Map>(out var map) ? map.Tier : 0;
             IsMap = MapTier > 0;
@@ -134,6 +144,7 @@ public partial class InventoryItemData
         HumanStats?.ForEach(x => textList.Add(x));
         HumanImpStats?.ForEach(x => textList.Add(x));
         Requirements.ForEach(x => textList.Add(x));
+        EnchantedStats?.ForEach(x => textList.Add(x));
         if (IsMap) textList.Add($"Map Tier: {MapTier}");
         if (IsElder) textList.Add("Elder");
         if (IsShaper) textList.Add("Shaper");
@@ -142,6 +153,7 @@ public partial class InventoryItemData
         if (IsWarlord) textList.Add("Warlord");
         if (IsCrusader) textList.Add("Crusader");
         if (IsSynthesized) textList.Add("Synthesized");
+        textList.Add($"explicit:{ExplicitModsCount}");
 
         return textList;
     }

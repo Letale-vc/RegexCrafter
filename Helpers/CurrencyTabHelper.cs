@@ -25,12 +25,14 @@ public static class CurrencyTabHelper
 
 
         Element button = null;
-        switch (currentCurrencyTabType)
-        {
-            case CurrencyTabType.Exotic when !TryGetCurrencySwitchButton(CurrencyTabType.General, out button):
-            case CurrencyTabType.General when !TryGetCurrencySwitchButton(CurrencyTabType.Exotic, out button):
-                return false;
-        }
+        if (currentCurrencyTabType ==
+            CurrencyTabType.General && !TryGetCurrencySwitchButton(CurrencyTabType.Exotic, out button))
+            return false;
+        if (currentCurrencyTabType == CurrencyTabType.Exotic &&
+            !TryGetCurrencySwitchButton(CurrencyTabType.General, out button))
+            return false;
+
+        if (button == null) return false;
 
         if (!await button.MoveAndClick()) return false;
 
@@ -39,7 +41,7 @@ public static class CurrencyTabHelper
 
     public static CurrencyTabType GetCurrentCurrencyTabType()
     {
-        if (!Stash.IsVisible || Stash.CurrentTab.TabType != InventoryType.CurrencyStash) return CurrencyTabType.None;
+        if (Stash.CurrentTab.TabType != InventoryType.CurrencyStash) return CurrencyTabType.None;
         if (Stash.CurrentTab.Inventory.Children[1].IsVisible) return CurrencyTabType.General;
         if (Stash.CurrentTab.Inventory.Children[2].IsVisible) return CurrencyTabType.Exotic;
         return CurrencyTabType.None;
@@ -50,7 +52,7 @@ public static class CurrencyTabHelper
         element = null;
         if (!Stash.IsVisible) return false;
 
-        element = Stash.CurrentTab.Inventory.FindChildRecursive(x => x.Text == typeButton.ToString());
+        element = Stash.CurrentTab.Inventory.FindChildRecursive(x => x.Text == typeButton.ToString()).Parent;
         if (element == null)
         {
             GlobalLog.Error($"Not find button {typeButton}.", LogName);

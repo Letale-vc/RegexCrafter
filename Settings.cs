@@ -18,6 +18,7 @@ public class Settings : ISettings
 public class TabSettings
 {
     public string CurrencyTab { get; set; } = string.Empty;
+    public string DeliriumTab { get; set; } = string.Empty;
 
     // public string DumpTab { get; set; } = string.Empty;
     // public string DelveTab { get; set; } = string.Empty;

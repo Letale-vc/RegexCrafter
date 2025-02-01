@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Threading.Tasks;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using ImGuiNET;
@@ -174,19 +173,22 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
                 return false;
             }
 
+            var resCondition = RegexCondition(item);
+
             GlobalLog.Info($"### Hovered item: {item?.BaseName} (Address: {item?.Entity.Address})", LogName);
 
-            if (RegexCondition(item))
+            if (resCondition)
             {
                 GlobalLog.Info("### Initial regex condition already met! Returning success.", LogName);
                 return true;
             }
 
-            var maxAttempts = 3000;
+
+            const int maxAttempts = 3000;
             var attempts = 0;
             GlobalLog.Debug($"### Starting crafting loop. Max attempts: {maxAttempts}", LogName);
 
-            while (!RegexCondition(item) && attempts < maxAttempts)
+            while (!resCondition && attempts < maxAttempts)
             {
                 GlobalLog.Debug($"### Attempt {attempts + 1}/{maxAttempts}", LogName);
                 await TaskUtils.NextFrame();
@@ -199,11 +201,11 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
                     GlobalLog.Debug($"### Processing currency: {currencyUse.CurrencyName}", LogName);
                     CancellationToken.ThrowIfCancellationRequested();
 
-                    var conditionResult = CurrencyCondition(item, currencyUse.CurrencyUseCondition);
-                    GlobalLog.Debug($"### Currency condition result: {conditionResult} " +
+                    var currencyConditionResult = CurrencyCondition(item, currencyUse.CurrencyUseCondition);
+                    GlobalLog.Debug($"### Currency condition result: {currencyConditionResult} " +
                                     $"(Conditions: {string.Join(", ", currencyUse.CurrencyUseCondition)})", LogName);
 
-                    if (!conditionResult)
+                    if (!currencyConditionResult)
                     {
                         GlobalLog.Debug("### Currency conditions not met, skipping", LogName);
                         continue;
@@ -213,15 +215,7 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
                     var useResult = await Scripts.UseCurrencyToSingleItem(
                         item,
                         currencyUse.CurrencyName,
-                        x =>
-                        {
-                            item = x;
-                            var regexCondition = RegexCondition(x);
-                            var stopCondition = CurrencyCondition(x, currencyUse.StopUseCondition);
-                            GlobalLog.Debug($"### Stop condition check: " +
-                                            $"Regex={regexCondition}, Stop={stopCondition}", LogName);
-                            return regexCondition || stopCondition;
-                        });
+                        UpdateItemAndCondition);
 
                     GlobalLog.Debug($"### Currency use result: {useResult}", LogName);
 
@@ -232,11 +226,10 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
                     }
 
                     GlobalLog.Info($"### Successfully used currency: {currencyUse.CurrencyName}", LogName);
-                    await Task.Yield(); // Добавляем задержку для стабильности
                 }
 
                 attempts++;
-                GlobalLog.Debug($"### Completed attempt {attempts}. Current regex status: {RegexCondition(item)}",
+                GlobalLog.Debug($"### Completed attempt {attempts}. Current regex status: {resCondition}",
                     LogName);
             }
 
@@ -248,6 +241,16 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
 
             GlobalLog.Info("### Crafting completed successfully!", LogName);
             return true;
+
+            bool UpdateItemAndCondition(InventoryItemData x)
+            {
+                item = x;
+                var regexCondition = RegexCondition(x);
+                var stopCondition = CurrencyCondition(x, CraftState.AnyCurrencyUseList[0].StopUseCondition);
+                GlobalLog.Debug($"### Stop condition check: " +
+                                $"Regex={regexCondition}, Stop={stopCondition}", LogName);
+                return regexCondition || stopCondition;
+            }
         }
 
         GlobalLog.Error("### Other craft places not supported!", LogName);

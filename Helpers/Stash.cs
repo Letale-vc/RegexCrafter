@@ -22,7 +22,8 @@ public static class Stash
         .PlayerStashTabs.OrderBy(x => x.VisibleIndex).ToList();
 
     public static List<string> AllTabNames => ServerStashTabs
-        .Where(x => x.TabType is InventoryTabType.Currency or InventoryTabType.Essence or InventoryTabType.Normal
+        .Where(x => x.TabType is InventoryTabType.Currency or InventoryTabType.Essence or InventoryTabType.Delirium
+            or InventoryTabType.Normal
             or InventoryTabType.Premium or InventoryTabType.Quad).OrderBy(x => x.VisibleIndex).Select(x => x.Name)
         .ToList();
 
@@ -133,6 +134,12 @@ public static class Stash
     {
         if (!IsVisible) return false;
         return await SwitchTab(Settings.TabSettings.CurrencyTab);
+    }
+
+    public static async SyncTask<bool> SwitchToDeliriumTab()
+    {
+        if (!IsVisible) return false;
+        return await SwitchTab(Settings.TabSettings.DeliriumTab);
     }
 
     public static bool TryGetTabType(string tabName, out InventoryTabType type)

@@ -30,7 +30,7 @@ public static class Scripts
         {
             if (!await CurrencyUseHelper.TakeForUse(currency)) return false;
             if (!await Input.SimulateKeyEvent(Keys.LShiftKey, true, false)) return false;
-            return await ApplyCurrencyUntilMet(item, condition);
+            return await ClickUntilCondition(item, condition);
         }
         finally
         {
@@ -71,9 +71,26 @@ public static class Scripts
                 return true;
             }
 
-            if (!await Stash.SwitchToCurrencyTab() || !await CurrencyUseHelper.TakeForUse(currency) ||
-                !await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
+            if (currency.Contains("Delirium Orb"))
+            {
+                if (!await Stash.SwitchToDeliriumTab())
+                {
+                    GlobalLog.Error("Can't switch to delirium tab.", LogName);
+                    return false;
+                }
+            }
+            else if (!await Stash.SwitchToCurrencyTab())
+            {
+                GlobalLog.Error("Can't switch to currency tab.", LogName);
                 return false;
+            }
+
+            if (!await CurrencyUseHelper.TakeForUse(currency) ||
+                !await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
+            {
+                GlobalLog.Error($"Can't take {currency} for use.", LogName);
+                return false;
+            }
 
             if (Settings.CraftPlace == CraftPlaceType.Stash && !await Stash.SwitchToCraftTab()) return false;
 
@@ -81,7 +98,7 @@ public static class Scripts
             {
                 CancellationToken.ThrowIfCancellationRequested();
 
-                if (await ApplyCurrencyUntilMet(item, condition)) continue;
+                if (await ClickUntilCondition(item, condition)) continue;
 
                 GlobalLog.Error($"Can't apply {currency} to item.", LogName);
                 return false;
@@ -102,9 +119,27 @@ public static class Scripts
         GlobalLog.Debug($"Start using {currency} to items.", LogName);
         try
         {
-            if (!await Stash.SwitchToCurrencyTab() || !await CurrencyUseHelper.TakeForUse(currency) ||
-                !await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
+            if (currency.Contains("Delirium Orb"))
+            {
+                if (!await Stash.SwitchToDeliriumTab())
+                {
+                    GlobalLog.Error("Can't switch to delirium tab.", LogName);
+                    return false;
+                }
+            }
+            else if (!await Stash.SwitchToCurrencyTab())
+            {
+                GlobalLog.Error("Can't switch to currency tab.", LogName);
                 return false;
+            }
+
+
+            if (!await CurrencyUseHelper.TakeForUse(currency) ||
+                !await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
+            {
+                GlobalLog.Error($"Can't take {currency} for use.", LogName);
+                return false;
+            }
 
             if (Settings.CraftPlace == CraftPlaceType.Stash && !await Stash.SwitchToCraftTab()) return false;
 
@@ -112,7 +147,7 @@ public static class Scripts
             {
                 CancellationToken.ThrowIfCancellationRequested();
 
-                if (await ApplyCurrencyUntilMet(item, condition)) continue;
+                if (await ClickUntilCondition(item, condition)) continue;
 
                 GlobalLog.Error($"Can't apply {currency} to item.", LogName);
                 return false;
@@ -126,37 +161,35 @@ public static class Scripts
         }
     }
 
-    private static async SyncTask<bool> ApplyCurrencyUntilMet(InventoryItemData item,
-        Func<InventoryItemData, bool> condition)
+    private static async SyncTask<bool> ClickUntilCondition(InventoryItemData item,
+        Func<InventoryItemData, bool> condition, int maxCountClick = 3000)
     {
-        if (condition(item)) return true;
-
-        // GlobalLog.Info($"Start applying Currency UntilMet to {item}.", LogName);
-
+        var countClick = 0;
         InventoryItemData itemHoverTemp = null;
         while (Stash.IsVisible && PlayerInventory.IsVisible)
         {
+            if (countClick >= 3000)
+            {
+                GlobalLog.Error($"Too many clicks. Max clicks: {maxCountClick}", LogName);
+                return false;
+            }
+
             CancellationToken.ThrowIfCancellationRequested();
-            // Check if the required currency is available
-            // if (!Stash.CurrentTab.ContainsItem(x => x.BaseName == _currentCurrencyUse))
-            // {
-            //     GlobalLog.Error($"No {_currentCurrencyUse} found.", LogName);
-            //     return false;
-            // }
 
             var cursorGetClientRectCache = Cursor.GetClientRectCache;
-
+            // Move the mouse to the item
             if (!item.GetClientRectCache.Contains(cursorGetClientRectCache.Center.X, cursorGetClientRectCache.Center.Y))
-                // Move the mouse to the item
+            {
+                GlobalLog.Debug($"Move mouse to item {item}.", LogName);
                 await item.MoveMouseToItem();
+            }
 
             // Get the initial hovered item
             if (itemHoverTemp == null)
             {
                 var (isSuccess, hoveredItem) = await WaitForHoveredItem(
-                    hoverItem => hoverItem.Entity != null,
+                    hoverItem => hoverItem.Entity.Address == item.Entity.Address,
                     "Get the initial hovered item");
-
                 if (!isSuccess) return false;
                 itemHoverTemp = hoveredItem;
             }
@@ -170,15 +203,24 @@ public static class Scripts
             }
 
             // Apply the currency by clicking
+            GlobalLog.Debug($"Click on item {item}.", LogName);
             await Input.Click();
 
             // Wait for the item to update after applying currency
+            GlobalLog.Debug("Wait for item update after applying currency.", LogName);
             var (isSuccessAfterClick, updatedHoveredItem) = await WaitForHoveredItem(
                 hoverItem => hoverItem.Entity.Address != itemHoverTemp.Entity.Address,
                 "Apply currency to item");
 
-            if (!isSuccessAfterClick) return false;
+            if (!isSuccessAfterClick)
+            {
+                GlobalLog.Error("No updated hovered item found!", LogName);
+                return false;
+            }
+
+            GlobalLog.Debug($"Updated hovered item: {updatedHoveredItem}.", LogName);
             itemHoverTemp = updatedHoveredItem;
+            countClick++;
         }
 
         return false;
@@ -203,6 +245,9 @@ public static class Scripts
         if (!await Input.SimulateKeyEvent(Keys.C, true, true, Keys.LControlKey)) return (false, hoveredItem);
 
         hoveredItem.ClipboardText = Clipboard.GetClipboardText();
+        hoveredItem.ClipboardText = $"{hoveredItem.ClipboardText}explicit:{hoveredItem.ExplicitModsCount}\n";
+
+        GlobalLog.Debug($"Clipboard text: {hoveredItem.ClipboardText}", LogName);
 
         return (true, hoveredItem);
     }

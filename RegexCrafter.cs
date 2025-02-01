@@ -104,7 +104,7 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
             {
                 Cts.Cancel();
                 GlobalLog.Debug("Craft is canceled.", LogName);
-                Cts.Cancel();
+                _ = Input.CleanKeys();
                 Cts = null;
                 _currentOperation = null;
             }

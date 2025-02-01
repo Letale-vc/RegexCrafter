@@ -26,7 +26,8 @@ public class StashTab(RegexCrafter core)
 
     public bool ContainsItem(string baseName)
     {
-        return IsVisible && VisibleItems.Any(x => x.BaseName == baseName);
+        return IsVisible &&
+               VisibleItems.Any(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
     }
 
     public bool ContainsItem(Func<InventoryItemData, bool> condition)
@@ -42,8 +43,8 @@ public class StashTab(RegexCrafter core)
             return false;
         }
 
-        item = VisibleItems.FirstOrDefault(x => x.BaseName == baseName);
-
+        item = VisibleItems.FirstOrDefault(
+            x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
         return item != null;
     }
 
