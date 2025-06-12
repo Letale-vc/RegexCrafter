@@ -138,16 +138,17 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
             GlobalLog.Debug("Craft is running...", LogName);
             TaskUtils.RunOrRestart(ref _currentOperation, () => null);
         }
-        if (!Stash.IsVisible && !PlayerInventory.IsVisible)
-        {
-            Cts.Cancel();
-            GlobalLog.Debug("Craft is canceled.", LogName);
-            _ = Input.CleanKeys();
-            Cts = null;
-            _currentOperation = null;
-        }
-
         if (Cts is { Token.IsCancellationRequested: false })
+        {
+            if (!Stash.IsVisible && !PlayerInventory.IsVisible)
+            {
+                Cts.Cancel();
+                GlobalLog.Debug("Craft is canceled.", LogName);
+                _ = Input.CleanKeys();
+                Cts = null;
+                _currentOperation = null;
+            }
+
             if (ExileCore.Input.IsKeyDown(Settings.StopCraftHotKey.Value))
             {
                 Cts.Cancel();
@@ -156,6 +157,7 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
                 Cts = null;
                 _currentOperation = null;
             }
+        }
 
         if (ExileCore.Input.IsKeyDown(Settings.StartCraftHotKey.Value) && _currentOperation == null)
         {
