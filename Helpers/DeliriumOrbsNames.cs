@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace RegexCrafter.Helpers.Enums;
+namespace RegexCrafter.Helpers;
 
 public static class DeliriumOrbsNames
 {

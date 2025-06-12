@@ -1,12 +1,11 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using ImGuiNET;
 using RegexCrafter.Helpers;
 using RegexCrafter.Helpers.Enums;
-using RegexCrafter.Utils;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
 
 namespace RegexCrafter.CraftsMethods;
 
@@ -22,7 +21,7 @@ public class CustomCraftState : CraftState
     public List<AnyCurrencyState> AnyCurrencyUseList = [];
 }
 
-public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
+public class CustomCraft(RegexCrafter core) : CraftBase<CustomCraftState>(core)
 {
     private const string LogName = "Custom Craft";
 
@@ -122,15 +121,15 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
         if (string.IsNullOrEmpty(item.ClipboardText)) return false;
         foreach (var pattern in patterns)
         {
-            var (exclude, include, maxIncludeOnlyOne) = RegexUtils.ParsedPattern(pattern);
+            var (exclude, include, maxIncludeOnlyOne) = RegexFinder.ParsePattern(pattern);
 
-            var excludeResult = RegexUtils.MatchesAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
+            var excludeResult = RegexFinder.ContainsAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
             GlobalLog.Info(
                 $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
                 LogName);
             if (excludeResult) continue;
 
-            RegexUtils.MatchesAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
+            RegexFinder.ContainsAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
             if (foundPatterns2.Count > 1)
             {
                 GlobalLog.Info(
@@ -139,7 +138,7 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
                 continue;
             }
 
-            var includeResult = RegexUtils.MatchesAllPatterns(item.ClipboardText, include, out var foundPatterns3);
+            var includeResult = RegexFinder.ContainsAllPatterns(item.ClipboardText, include, out var foundPatterns3);
 
             if (!includeResult)
             {
@@ -155,7 +154,7 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
         return false;
     }
 
-    public override async SyncTask<bool> Start()
+    protected override async SyncTask<bool> Start()
     {
         GlobalLog.Debug($"### Start method entered. Craft place: {Settings.CraftPlace}", LogName);
 
@@ -257,10 +256,10 @@ public class CustomCraft(RegexCrafter core) : Craft<CustomCraftState>(core)
         return false;
     }
 
-    private SyncTask<List<InventoryItemData>> GetValidItem()
+    private async SyncTask<List<InventoryItemData>> GetValidItem()
     {
-        return Scripts.TryGetUsedItems(x =>
-            DoneCraftItem.All(s => s.Entity.Address != x.Entity.Address) && !x.IsCorrupted);
+        var (Succes, Items) = await CraftingPlace.TryGetUsedItemsAsync(x => DoneCraftItem.All(s => s.Entity.Address != x.Entity.Address) && !x.IsCorrupted);
+        return Items;
     }
 
     private async SyncTask<bool> ChaosSpam()

@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.5.002.0
+VisualStudioVersion = 17.14.36202.13
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RegexCrafter", "RegexCrafter.csproj", "{DF2169BA-5EC6-46FB-A685-4CAD49F7687C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RegexCrafter", "RegexCrafter.csproj", "{099422D3-965E-3BC5-C4A1-6137EE97E858}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{DF2169BA-5EC6-46FB-A685-4CAD49F7687C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DF2169BA-5EC6-46FB-A685-4CAD49F7687C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DF2169BA-5EC6-46FB-A685-4CAD49F7687C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DF2169BA-5EC6-46FB-A685-4CAD49F7687C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{099422D3-965E-3BC5-C4A1-6137EE97E858}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{099422D3-965E-3BC5-C4A1-6137EE97E858}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{099422D3-965E-3BC5-C4A1-6137EE97E858}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{099422D3-965E-3BC5-C4A1-6137EE97E858}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {631985EC-5369-4E78-B49A-4393334F3AD4}
+		SolutionGuid = {79CE20DD-D8C9-416B-995F-416831FEA80D}
 	EndGlobalSection
 EndGlobal

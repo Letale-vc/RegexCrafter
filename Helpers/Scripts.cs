@@ -1,36 +1,30 @@
+using ExileCore.Shared;
+using RegexCrafter.Helpers.Enums;
+using RegexCrafter.Interface;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
-using ExileCore.Shared;
-using RegexCrafter.Helpers.Enums;
 using Cursor = ExileCore.PoEMemory.MemoryObjects.Cursor;
 
 namespace RegexCrafter.Helpers;
 
-public static class Scripts
+public class Scripts(RegexCrafter _core)
 {
     private const string LogName = "Scripts";
-    private static RegexCrafter _core;
-    private static string _currentCurrencyUse;
-    private static Settings Settings => _core.Settings;
-    private static Cursor Cursor => _core.GameController.Game.IngameState.IngameUi.Cursor;
-    private static CancellationToken CancellationToken => _core.Cts.Token;
-
-    public static void Init(RegexCrafter core)
-    {
-        _core = core;
-    }
-
-    public static async SyncTask<bool> UseCurrencyToSingleItem(InventoryItemData item, string currency,
+    private Cursor Cursor => _core.GameController.Game.IngameState.IngameUi.Cursor;
+    private CancellationToken CancellationToken => _core.Cts.Token;
+    private ICurrencyPlace CurrencyPlace => _core.CurrencyPlace;
+    private ICraftingPlace CraftingPlace => _core.CraftingPlace;
+    public async SyncTask<bool> UseCurrencyToSingleItem(InventoryItemData item, string currency,
         Func<InventoryItemData, bool> condition)
     {
         try
         {
-            if (!await CurrencyUseHelper.TakeForUse(currency)) return false;
+            if (!await CurrencyPlace.TakeCurrencyForUseAsync(currency)) return false;
             if (!await Input.SimulateKeyEvent(Keys.LShiftKey, true, false)) return false;
-            return await ClickUntilCondition(item, condition);
+            return await ClickUntilCondition(item, currency, condition);
         }
         finally
         {
@@ -38,116 +32,42 @@ public static class Scripts
         }
     }
 
-
-    public static async SyncTask<List<InventoryItemData>> TryGetUsedItems(Func<InventoryItemData, bool> conditionUse)
-    {
-        List<InventoryItemData> items = null;
-        GlobalLog.Debug("Getting used items.", LogName);
-        if (Settings.CraftPlace == CraftPlaceType.Stash)
-        {
-            GlobalLog.Debug("Trying to switch to craft tab.", LogName);
-            if (!await Stash.SwitchToCraftTab()) return items;
-        }
-
-        GlobalLog.Debug("Filtered items using condition.", LogName);
-
-        items = Settings.CraftPlace == CraftPlaceType.Inventory
-            ? PlayerInventory.Items.Where(conditionUse).ToList()
-            : Stash.CurrentTab.VisibleItems.Where(conditionUse).ToList();
-        return items;
-    }
-
-
-    public static async SyncTask<bool> UseCurrencyOnMultipleItems(string currency,
+    public async SyncTask<bool> UseCurrencyOnMultipleItems(string currency,
         Func<InventoryItemData, bool> conditionUseCurr, Func<InventoryItemData, bool> condition)
     {
-        try
+        var (Succes, Items) = await CraftingPlace.TryGetUsedItemsAsync(conditionUseCurr);
+        if (!Succes) return false;
+        if (Items.Count == 0)
         {
-            var items = await TryGetUsedItems(conditionUseCurr);
-            if (items == null) return false;
-            if (items.Count == 0)
-            {
-                GlobalLog.Debug("No items found.", LogName);
-                return true;
-            }
-
-            if (currency.Contains("Delirium Orb"))
-            {
-                if (!await Stash.SwitchToDeliriumTab())
-                {
-                    GlobalLog.Error("Can't switch to delirium tab.", LogName);
-                    return false;
-                }
-            }
-            else if (!await Stash.SwitchToCurrencyTab())
-            {
-                GlobalLog.Error("Can't switch to currency tab.", LogName);
-                return false;
-            }
-
-            if (!await CurrencyUseHelper.TakeForUse(currency) ||
-                !await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
-            {
-                GlobalLog.Error($"Can't take {currency} for use.", LogName);
-                return false;
-            }
-
-            if (Settings.CraftPlace == CraftPlaceType.Stash && !await Stash.SwitchToCraftTab()) return false;
-
-            foreach (var item in items)
-            {
-                CancellationToken.ThrowIfCancellationRequested();
-
-                if (await ClickUntilCondition(item, condition)) continue;
-
-                GlobalLog.Error($"Can't apply {currency} to item.", LogName);
-                return false;
-            }
-
+            GlobalLog.Debug("No items found.", LogName);
             return true;
         }
-        finally
-        {
-            await Input.SimulateKeyEvent(Keys.LShiftKey, false);
-        }
+        return await UseCurrencyOnMultipleItems(Items, currency, condition);
     }
 
-
-    public static async SyncTask<bool> UseCurrencyOnMultipleItems(IEnumerable<InventoryItemData> items, string currency,
+    public async SyncTask<bool> UseCurrencyOnMultipleItems(IEnumerable<InventoryItemData> items, string currency,
         Func<InventoryItemData, bool> condition)
     {
         GlobalLog.Debug($"Start using {currency} to items.", LogName);
         try
         {
-            if (currency.Contains("Delirium Orb"))
+            if (!await CurrencyPlace.TakeCurrencyForUseAsync(currency))
             {
-                if (!await Stash.SwitchToDeliriumTab())
-                {
-                    GlobalLog.Error("Can't switch to delirium tab.", LogName);
-                    return false;
-                }
-            }
-            else if (!await Stash.SwitchToCurrencyTab())
-            {
-                GlobalLog.Error("Can't switch to currency tab.", LogName);
+                GlobalLog.Error($"Failed to take {currency} for use.", LogName);
                 return false;
             }
-
-
-            if (!await CurrencyUseHelper.TakeForUse(currency) ||
-                !await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
+            if (!await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
             {
-                GlobalLog.Error($"Can't take {currency} for use.", LogName);
+                GlobalLog.Error("Failed to hold Shift key.", LogName);
                 return false;
             }
-
-            if (Settings.CraftPlace == CraftPlaceType.Stash && !await Stash.SwitchToCraftTab()) return false;
+            if (!await CraftingPlace.PrepareCraftingPlace()) return false;
 
             foreach (var item in items)
             {
                 CancellationToken.ThrowIfCancellationRequested();
 
-                if (await ClickUntilCondition(item, condition)) continue;
+                if (await ClickUntilCondition(item, currency, condition)) continue;
 
                 GlobalLog.Error($"Can't apply {currency} to item.", LogName);
                 return false;
@@ -161,20 +81,21 @@ public static class Scripts
         }
     }
 
-    private static async SyncTask<bool> ClickUntilCondition(InventoryItemData item,
-        Func<InventoryItemData, bool> condition, int maxCountClick = 3000)
+    private async SyncTask<bool> ClickUntilCondition(InventoryItemData item, string currecnyUseName,
+        Func<InventoryItemData, bool> condition, int maxCountClick = 3000, CancellationToken ct = default)
     {
         var countClick = 0;
         InventoryItemData itemHoverTemp = null;
-        while (Stash.IsVisible && PlayerInventory.IsVisible)
+        GlobalLog.Debug($"Clicking on item {item} until condition is met.", LogName);
+        while (CurrencyPlace.HasCurrency(currecnyUseName) && CraftingPlace.CanCraft())
         {
-            if (countClick >= 3000)
+            if (countClick >= maxCountClick)
             {
                 GlobalLog.Error($"Too many clicks. Max clicks: {maxCountClick}", LogName);
                 return false;
             }
 
-            CancellationToken.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
 
             var cursorGetClientRectCache = Cursor.GetClientRectCache;
             // Move the mouse to the item
@@ -226,7 +147,7 @@ public static class Scripts
         return false;
     }
 
-    public static async SyncTask<(bool isSuccess, InventoryItemData hoveredItem)> WaitForHoveredItem(
+    public async SyncTask<(bool isSuccess, InventoryItemData hoveredItem)> WaitForHoveredItem(
         Func<InventoryItemData, bool> predicate,
         string operationName
     )
@@ -252,7 +173,7 @@ public static class Scripts
         return (true, hoveredItem);
     }
 
-    public static bool TryGetHoveredItem(out InventoryItemData item)
+    public bool TryGetHoveredItem(out InventoryItemData item)
     {
         item = null;
         var uiHover = _core.GameController.Game.IngameState.UIHoverTooltip;

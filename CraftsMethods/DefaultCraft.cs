@@ -1,11 +1,11 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using ImGuiNET;
 using RegexCrafter.Helpers;
 using RegexCrafter.Helpers.Enums;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
 
 namespace RegexCrafter.CraftsMethods;
 
@@ -14,7 +14,7 @@ public class DefaultCraftState : CraftState
     public CurrencyMethodCraftType CurrencyMethodCraftType = CurrencyMethodCraftType.Chaos;
 }
 
-public class DefaultCraft(RegexCrafter core) : Craft<DefaultCraftState>(core)
+public class DefaultCraft(RegexCrafter core) : CraftBase<DefaultCraftState>(core)
 {
     private const string LogName = "Default Craft";
 
@@ -55,7 +55,7 @@ public class DefaultCraft(RegexCrafter core) : Craft<DefaultCraftState>(core)
         if (ImGui.Button("Add Regex Pattern")) CraftState.RegexPatterns.Add(string.Empty);
     }
 
-    public override async SyncTask<bool> Start()
+    protected override async SyncTask<bool> Start()
     {
         switch (CraftState.CurrencyMethodCraftType)
         {
@@ -73,52 +73,10 @@ public class DefaultCraft(RegexCrafter core) : Craft<DefaultCraftState>(core)
 
     private async SyncTask<bool> ScouringAndAlchemy()
     {
-        if (Settings.CraftPlace == CraftPlaceType.MousePosition)
-        {
-            var (isSuccess, item) = await Scripts.WaitForHoveredItem(
-                hoverItem => hoverItem != null,
-                "Get the initial hovered item");
-
-            if (!isSuccess)
-            {
-                GlobalLog.Error("### No hovered item found!", LogName);
-                return false;
-            }
-
-            if (item.IsCorrupted) return false;
-
-            var resCondition = RegexCondition(item);
-            while (!resCondition)
-            {
-                CancellationToken.ThrowIfCancellationRequested();
-
-                if (item.Rarity is ItemRarity.Rare or ItemRarity.Magic)
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfScouring,
-                            x =>
-                            {
-                                item = x;
-                                resCondition = RegexCondition(x);
-                                return resCondition || x.Rarity == ItemRarity.Normal;
-                            }))
-                        return false;
-
-                if (item.Rarity != ItemRarity.Normal) continue;
-
-                if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfAlchemy,
-                        x =>
-                        {
-                            item = x;
-                            resCondition = RegexCondition(x);
-                            return resCondition || x.Rarity == ItemRarity.Rare;
-                        })) return false;
-            }
-
-            return true;
-        }
 
         var items = await GetValidItem();
 
-        if (items == null) return false;
+        if (items.Count == 0) return false;
 
         while (items.Count > 0)
         {
@@ -136,71 +94,15 @@ public class DefaultCraft(RegexCrafter core) : Craft<DefaultCraftState>(core)
         return true;
     }
 
-    private SyncTask<List<InventoryItemData>> GetValidItem()
+    private async SyncTask<List<InventoryItemData>> GetValidItem()
     {
-        return Scripts.TryGetUsedItems(x =>
+        return (await CraftingPlace.TryGetUsedItemsAsync(x =>
             DoneCraftItem.All(s => s.Entity.Address != x.Entity.Address) && !x.IsCorrupted &&
-            x.Rarity != ItemRarity.Unique);
+            x.Rarity != ItemRarity.Unique)).Items;
     }
 
     private async SyncTask<bool> AlterationSpam()
     {
-        #region Mouse position use
-
-        if (Settings.CraftPlace == CraftPlaceType.MousePosition)
-        {
-            var (isSuccess, item) = await Scripts.WaitForHoveredItem(
-                hoverItem => hoverItem != null,
-                "Get the initial hovered item");
-
-            if (!isSuccess)
-            {
-                GlobalLog.Error("### No hovered item found!", LogName);
-                return false;
-            }
-
-            if (item.Rarity == ItemRarity.Unique || item.IsCorrupted) return false;
-            var resCondition = RegexCondition(item);
-            if (resCondition) return true;
-
-            switch (item.Rarity)
-            {
-                case ItemRarity.Normal:
-                    // 1. Use transmutation 
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfTransmutation,
-                            x => UpdateItemAndCondition(x) || x.Rarity == ItemRarity.Magic))
-                        return false;
-                    break;
-                case ItemRarity.Magic:
-                    break;
-                case ItemRarity.Rare:
-                    // 1. Use scouring
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfScouring,
-                            x => UpdateItemAndCondition(x) || x.Rarity == ItemRarity.Normal))
-                        return false;
-                    // 2. Use Transmutation
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfTransmutation,
-                            x => UpdateItemAndCondition(x) || x.Rarity == ItemRarity.Magic))
-                        return false;
-                    break;
-                default:
-                    return false;
-            }
-
-            if (resCondition) return true;
-
-            // end. spam alteration
-            return await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfAlteration, RegexCondition);
-
-            bool UpdateItemAndCondition(InventoryItemData x)
-            {
-                item = x;
-                resCondition = RegexCondition(x);
-                return resCondition;
-            }
-        }
-
-        #endregion
 
         if (!await CurrencyUseHelper.ScouringItems(x => x.Rarity == ItemRarity.Rare && !x.IsCorrupted,
                 x => x.Rarity == ItemRarity.Normal)) return false;
@@ -220,61 +122,6 @@ public class DefaultCraft(RegexCrafter core) : Craft<DefaultCraftState>(core)
 
     private async SyncTask<bool> ChaosSpam()
     {
-        #region Mouse position use
-
-        if (Settings.CraftPlace == CraftPlaceType.MousePosition)
-        {
-            var (isSuccess, item) = await Scripts.WaitForHoveredItem(
-                hoverItem => hoverItem != null,
-                "Get the initial hovered item");
-
-            if (!isSuccess)
-            {
-                GlobalLog.Error("### No hovered item found!", LogName);
-                return false;
-            }
-
-            if (item.IsCorrupted || item.Rarity == ItemRarity.Unique) return false;
-
-            var resCondition = RegexCondition(item);
-            if (resCondition) return true;
-
-            switch (item.Rarity)
-            {
-                case ItemRarity.Normal:
-                    // 1. Use alchemy
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfAlchemy,
-                            x => UpdateItemAndCondition(x) && x.Rarity == ItemRarity.Rare))
-                        return false;
-                    break;
-                case ItemRarity.Magic:
-                    // 1. Scouring to Normal 
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfScouring,
-                            x => UpdateItemAndCondition(x) && x.Rarity == ItemRarity.Normal))
-                        return false;
-                    // 2. Alchemy to Rare 
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfAlchemy,
-                            x => UpdateItemAndCondition(x) && x.Rarity == ItemRarity.Rare))
-                        return false;
-                    break;
-                case ItemRarity.Rare:
-                    break;
-                default:
-                    // else return false 
-                    return false;
-            }
-
-            return await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.ChaosOrb, RegexCondition);
-
-            bool UpdateItemAndCondition(InventoryItemData x)
-            {
-                item = x;
-                resCondition = RegexCondition(x);
-                return resCondition;
-            }
-        }
-
-        #endregion
 
         if (!await CurrencyUseHelper.ScouringItems(x => x.Rarity == ItemRarity.Magic, RegexCondition)) return false;
         // apply orb of alchemy

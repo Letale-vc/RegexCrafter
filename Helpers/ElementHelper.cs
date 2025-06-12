@@ -1,8 +1,8 @@
-﻿using System.Windows.Forms;
-using ExileCore.PoEMemory;
+﻿using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
+using System.Windows.Forms;
 using Cursor = ExileCore.PoEMemory.MemoryObjects.Cursor;
 
 namespace RegexCrafter.Helpers;
@@ -10,11 +10,10 @@ namespace RegexCrafter.Helpers;
 public static class ElementHelper
 {
     private static RegexCrafter _core;
-    private static Cursor Cursor => _core.GameController.Game.IngameState.IngameUi.Cursor;
-
-    public static void Init(RegexCrafter core)
+    private static Cursor _cursor;
+    public static void Init(Cursor cursor)
     {
-        _core = core;
+        _cursor = cursor;
     }
 
     public static async SyncTask<bool> MoveTo(this Element element)
@@ -48,7 +47,7 @@ public static class ElementHelper
 
         if (!await Input.Click(MouseButtons.Right, element.GetClientRect())) return false;
 
-        return await Wait.For(() => Cursor.Action == MouseActionType.UseItem, "On take for use", 500);
+        return await Wait.For(() => _cursor.Action == MouseActionType.UseItem, "On take for use", 500);
     }
 
     public static async SyncTask<bool> OnTakeForHold(this Element element)
@@ -59,7 +58,7 @@ public static class ElementHelper
 
         if (!await Input.Click(element.GetClientRect())) return false;
 
-        return await Wait.For(() => Cursor.Action == MouseActionType.HoldItem, "On take for hold", 500);
+        return await Wait.For(() => _cursor.Action == MouseActionType.HoldItem, "On take for hold", 500);
     }
 
     public static async SyncTask<bool> FastMove(this Element element)

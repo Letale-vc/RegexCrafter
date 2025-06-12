@@ -1,15 +1,16 @@
+using ExileCore;
+using ExileCore.Shared;
+using ImGuiNET;
+using Newtonsoft.Json;
+using RegexCrafter.Helpers;
+using RegexCrafter.Interface;
+using SharpDX;
+using SharpDX.Text;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using ExileCore.Shared;
-using ImGuiNET;
-using Newtonsoft.Json;
-using RegexCrafter.Helpers;
-using RegexCrafter.Utils;
-using SharpDX;
-using SharpDX.Text;
 using Vector2 = System.Numerics.Vector2;
 
 namespace RegexCrafter.CraftsMethods;
@@ -18,43 +19,40 @@ public class CraftState : ICloneable
 {
     public readonly List<string> RegexPatterns = [];
     public string Name = string.Empty;
-
     public object Clone()
     {
         return MemberwiseClone();
     }
 }
 
-public interface ICraft
-{
-    string Name { get; }
-    void DrawSettings();
-    SyncTask<bool> Start();
-    bool PreCraftCheck();
-    void OnClose();
-    public void Render();
-    public void Clean();
-}
 
-public abstract class Craft<TState> : ICraft where TState : CraftState, new()
+
+public abstract class CraftBase<TState> : ICrafting where TState : CraftState, new()
 {
     private const string LogName = "Craft";
 
-    public readonly List<InventoryItemData> BadItems = [];
-    public readonly RegexCrafter Core;
-    public readonly List<InventoryItemData> DoneCraftItem = [];
-    public readonly List<TState> StateList;
+    protected readonly List<InventoryItemData> BadItems = [];
+    protected readonly List<InventoryItemData> DoneCraftItem = [];
+    protected readonly List<TState> StateList;
     private string _importExportText = string.Empty;
     private int _stateIndex;
+    private readonly RegexCrafter Core;
+    protected Scripts Scripts => Core.Scripts;
+    protected readonly CurrencyUseHelper CurrencyUseHelper;
+    protected Stash Stash => Core.Stash;
+    protected PlayerInventory PlayerInventory => Core.PlayerInventory;
+    protected Settings Settings => Core.Settings;
+    protected ICurrencyPlace CurrencyPlace => Core.CurrencyPlace;
+    protected ICraftingPlace CraftingPlace => Core.CraftingPlace;
 
-    protected Craft(RegexCrafter core)
+    protected CraftBase(RegexCrafter core)
     {
         Core = core;
         StateList = GetFileState();
+        CurrencyUseHelper = new CurrencyUseHelper(Scripts);
     }
 
     public string PathFileState => Path.Combine(Core.ConfigDirectory, Name);
-    public Settings Settings => Core.Settings;
     public CancellationToken CancellationToken => Core.Cts.Token;
     public abstract TState CraftState { get; set; }
     public abstract string Name { get; }
@@ -70,7 +68,7 @@ public abstract class Craft<TState> : ICraft where TState : CraftState, new()
 
     public void Render()
     {
-        if (!PlayerInventory.IsVisible)
+        if (!Stash.IsVisible && !PlayerInventory.IsVisible)
         {
             Clean();
             return;
@@ -136,7 +134,15 @@ public abstract class Craft<TState> : ICraft where TState : CraftState, new()
         return true;
     }
 
-    public abstract SyncTask<bool> Start();
+    protected abstract SyncTask<bool> Start();
+    public SyncTask<bool> StartCrafting()
+    {
+        Clean();
+        if (!PreCraftCheck())
+            return new SyncTask<bool>(false);
+        GlobalLog.Debug($"Start crafting: {Name}.", LogName);
+        return Start();
+    }
 
     public void OnClose()
     {
@@ -199,15 +205,15 @@ public abstract class Craft<TState> : ICraft where TState : CraftState, new()
         if (string.IsNullOrEmpty(item.ClipboardText)) return false;
         foreach (var pattern in CraftState.RegexPatterns)
         {
-            var (exclude, include, maxIncludeOnlyOne) = RegexUtils.ParsedPattern(pattern);
+            var (exclude, include, maxIncludeOnlyOne) = RegexFinder.ParsePattern(pattern);
 
-            var excludeResult = RegexUtils.MatchesAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
+            var excludeResult = RegexFinder.ContainsAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
             GlobalLog.Info(
                 $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
                 LogName);
             if (excludeResult) continue;
 
-            RegexUtils.MatchesAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
+            RegexFinder.ContainsAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
             if (foundPatterns2.Count > 1)
             {
                 GlobalLog.Info(
@@ -216,7 +222,7 @@ public abstract class Craft<TState> : ICraft where TState : CraftState, new()
                 continue;
             }
 
-            var includeResult = RegexUtils.MatchesAllPatterns(item.ClipboardText, include, out var foundPatterns3);
+            var includeResult = RegexFinder.ContainsAllPatterns(item.ClipboardText, include, out var foundPatterns3);
 
             if (!includeResult)
             {

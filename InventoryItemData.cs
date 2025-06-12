@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Windows.Forms;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.MemoryObjects;
@@ -10,13 +5,17 @@ using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using RegexCrafter.Helpers;
 using SharpDX;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
 
 namespace RegexCrafter;
 
 public partial class InventoryItemData
 {
     private const string LogName = "InventoryItemData";
-    private static RegexCrafter _core;
     public readonly Element Element;
     public string BaseName;
     public string ClassName;
@@ -30,19 +29,17 @@ public partial class InventoryItemData
     public List<string> HumanCraftStats;
     public List<string> HumanImpStats;
     public List<string> HumanStats;
-    public bool IsCorrupted;
-    public bool IsCrusader;
-    public bool IsElder;
-    public bool IsHunter;
-    public bool IsIdentified;
-    public bool IsMap;
-    public bool IsRedeemer;
-    public bool IsShaper;
-    public bool IsSynthesized;
-    public bool IsT17Map;
-
-
-    public bool IsWarlord;
+    public bool IsCorrupted = false;
+    public bool IsCrusader = false;
+    public bool IsElder = false;
+    public bool IsHunter = false;
+    public bool IsIdentified = true;
+    public bool IsMap = false;
+    public bool IsRedeemer = false;
+    public bool IsShaper = false;
+    public bool IsSynthesized = false;
+    public bool IsT17Map = false;
+    public bool IsWarlord = false;
 
     //public string[] ToolTipStrings;
     public string ItemClass;
@@ -112,11 +109,6 @@ public partial class InventoryItemData
         }
     }
 
-
-    public static void Init(RegexCrafter core)
-    {
-        _core = core;
-    }
 
     public override string ToString()
     {
