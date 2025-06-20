@@ -22,7 +22,11 @@ public class Scripts(RegexCrafter _core)
     {
         try
         {
-            if (!await CurrencyPlace.TakeCurrencyForUseAsync(currency)) return false;
+            if (!await CurrencyPlace.TakeCurrencyForUseAsync(currency))
+            {
+                GlobalLog.Error($"Failed to take {currency} for use.", LogName);
+                return false;
+            }
             if (!await Input.SimulateKeyEvent(Keys.LShiftKey, true, false)) return false;
             return await ClickUntilCondition(item, currency, condition);
         }

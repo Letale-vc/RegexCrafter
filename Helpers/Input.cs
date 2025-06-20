@@ -79,12 +79,9 @@ public static class Input
     {
         using (_inputController)
         {
-            foreach (var key in CurrentDownKeys)
-            {
-                GlobalLog.Debug($"KeyUp {key}", LogName);
-                if (!await _inputController.KeyUp(key)) return false;
-            }
 
+            await _inputController.KeyUp(Keys.Control);
+            await _inputController.KeyUp(Keys.Shift);
             CurrentDownKeys.Clear();
         }
 
