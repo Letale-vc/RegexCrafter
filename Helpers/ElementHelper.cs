@@ -47,7 +47,9 @@ public static class ElementHelper
 
         if (!await Input.Click(MouseButtons.Right, element.GetClientRect())) return false;
 
-        return await Wait.For(() => _cursor.Action == MouseActionType.UseItem, "On take for use", 500);
+        await Wait.SleepSafe(100, 200); // Give some time for the cursor to change action
+        return true;
+        //return await Wait.For(() => _cursor.Action == MouseActionType.UseItem, "On take for use", 500);
     }
 
     public static async SyncTask<bool> OnTakeForHold(this Element element)

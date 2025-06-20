@@ -165,6 +165,7 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
             try
             {
                 _currentOperation = _craftList[_currentCraftIndex].StartCrafting();
+                _ = Input.CleanKeys();
 
             }
             catch (Exception e)

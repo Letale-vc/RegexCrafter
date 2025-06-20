@@ -1,8 +1,9 @@
-using ExileCore.Shared;
+﻿using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using ImGuiNET;
 using RegexCrafter.Helpers;
 using RegexCrafter.Helpers.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -118,7 +119,11 @@ public class CustomCraft(RegexCrafter core) : CraftBase<CustomCraftState>(core)
     private bool CurrencyCondition(InventoryItemData item, IEnumerable<string> patterns)
     {
         GlobalLog.Debug($"### Clipboard text: \n {item.ClipboardText}", LogName);
-        if (string.IsNullOrEmpty(item.ClipboardText)) return false;
+        if (string.IsNullOrEmpty(item.ClipboardText))
+        {
+            throw new ArgumentException("Clipboard text is empty or null.", nameof(item.ClipboardText));
+
+        }
         foreach (var pattern in patterns)
         {
             var (exclude, include, maxIncludeOnlyOne) = RegexFinder.ParsePattern(pattern);
@@ -221,11 +226,20 @@ public class CustomCraft(RegexCrafter core) : CraftBase<CustomCraftState>(core)
                     if (!useResult)
                     {
                         GlobalLog.Error($"### Failed to use currency: {currencyUse.CurrencyName}", LogName);
-                        return false;
+                        throw new Exception($"Failed to use currency: {currencyUse.CurrencyName}");
                     }
 
                     GlobalLog.Info($"### Successfully used currency: {currencyUse.CurrencyName}", LogName);
+
+                    resCondition = RegexCondition(item);
+                    if (resCondition)
+                    {
+                        GlobalLog.Info("### Main regex condition met after currency use", LogName);
+                        break; // Выходим из цикла foreach, так как условие выполнено
+                    }
+
                 }
+
 
                 attempts++;
                 GlobalLog.Debug($"### Completed attempt {attempts}. Current regex status: {resCondition}",
@@ -235,7 +249,7 @@ public class CustomCraft(RegexCrafter core) : CraftBase<CustomCraftState>(core)
             if (attempts >= maxAttempts)
             {
                 GlobalLog.Error("### Reached max attempts limit!", LogName);
-                return false;
+                throw new TimeoutException("Reached max attempts limit for crafting.");
             }
 
             GlobalLog.Info("### Crafting completed successfully!", LogName);
