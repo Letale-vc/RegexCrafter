@@ -62,7 +62,7 @@ public class PlayerInventory : ICurrencyPlace, ICraftingPlace
             return false;
         }
 
-        return Items.Any(x => (x.BaseName.Contains(currency) || x.BaseName == currency));
+        return Items.Any(x => x.BaseName.Contains(currency) || x.BaseName == currency);
     }
 
     public SyncTask<bool> TakeCurrencyForUseAsync(string currency)
@@ -72,7 +72,7 @@ public class PlayerInventory : ICurrencyPlace, ICraftingPlace
             GlobalLog.Error("Currency name cannot be null or empty.", "PlayerInventory");
             return SyncTask.FromResult(false);
         }
-        var item = Items.FirstOrDefault(x => (x.BaseName.Contains(currency) || x.BaseName == currency));
+        var item = Items.FirstOrDefault(x => x.BaseName.Contains(currency) || x.BaseName == currency);
         if (item is null)
         {
             GlobalLog.Error($"No {currency} found in player inventory.", "PlayerInventory");

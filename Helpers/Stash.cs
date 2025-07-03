@@ -19,7 +19,7 @@ public class Stash : ICurrencyPlace, ICraftingPlace
     private Settings Settings => _core.Settings;
     private CancellationToken CancellationToken => _core.Cts.Token;
     public bool IsVisible => _core.GameController.Game.IngameState.IngameUi.StashElement.IsVisible;
-    public string CurrentTabName => CurrentTab.Name;
+    public string CurrentTabName => CurrentTab.TabName;
     public IList<ServerStashTab> ServerStashTabs => _core.GameController.Game.IngameState.ServerData
         .PlayerStashTabs.OrderBy(x => x.VisibleIndex).ToList();
     public List<string> AllTabNames => ServerStashTabs

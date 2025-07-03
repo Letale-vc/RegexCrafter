@@ -1,4 +1,5 @@
 ﻿using ExileCore.PoEMemory;
+using ExileCore.PoEMemory.Elements;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
@@ -13,21 +14,26 @@ public class StashTab(RegexCrafter _core)
 {
     private const string LogName = "StashTab";
     public int Index => _core.GameController.Game.IngameState.IngameUi.StashElement.IndexVisibleStash;
-    public bool IsVisible => _core.GameController.Game.IngameState.IngameUi.StashElement.IsVisible;
-    public Inventory Inventory => _core.GameController.Game?.IngameState?.IngameUi?.StashElement?.VisibleStash;
-    public InventoryType TabType => _core.GameController.Game.IngameState.IngameUi.StashElement.VisibleStash.InvType;
-    public string Name => _core.GameController.Game.IngameState?.IngameUi?.StashElement?.GetStashName(_core.GameController.Game.IngameState
-            .IngameUi.StashElement.IndexVisibleStash);
+    public bool IsVisible => Inventory.IsVisible;
+    public InventoryType TabType => Inventory.InvType;
+    private StashTabContainerInventory StashTabContainerInventory => _core.GameController?.Game?.IngameState?.IngameUi?.StashElement?.Inventories[Index];
+    public string TabName => StashTabContainerInventory?.TabName ?? string.Empty;
+    public Inventory Inventory => StashTabContainerInventory?.Inventory;
 
-    public List<InventoryItemData> VisibleItems => _core.GameController.Game.IngameState?.IngameUi?.StashElement
-        ?.VisibleStash?.VisibleInventoryItems?.Select(x => new InventoryItemData(x)).ToList();
+    public List<InventoryItemData> VisibleItems => Inventory?.VisibleInventoryItems.Where(x => x != null && x.Type == ElementType.InventoryItem).Select(x => new InventoryItemData(x)).ToList();
 
-    public bool IsPublic => _core.GameController.Game.IngameState.ServerData.PlayerStashTabs.First(x => x.Name == Name)
+    public bool IsPublic => _core.GameController.Game.IngameState.ServerData.PlayerStashTabs.First(x => x.Name == TabName)
         .Flags.HasFlag(InventoryTabFlags.Public);
 
     public bool ContainsItem(string baseName)
     {
         if (!IsVisible) return false;
+        if (VisibleItems == null || VisibleItems.Count == 0)
+        {
+            GlobalLog.Error("VisibleItems is null or empty.", LogName);
+            return false;
+        }
+        ;
 
         return VisibleItems.Any(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
 
@@ -35,6 +41,12 @@ public class StashTab(RegexCrafter _core)
     public async SyncTask<bool> ContainsItemAsync(string baseName)
     {
         if (!IsVisible) return false;
+        if (VisibleItems == null || VisibleItems.Count == 0)
+        {
+            GlobalLog.Error("VisibleItems is null or empty.", LogName);
+            return false;
+        }
+        ;
 
         var result = VisibleItems.Any(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
 
@@ -54,7 +66,11 @@ public class StashTab(RegexCrafter _core)
     public async SyncTask<bool> ContainsItemAsync(Func<InventoryItemData, bool> condition)
     {
         if (!IsVisible) return false;
-
+        if (VisibleItems == null || VisibleItems.Count == 0)
+        {
+            GlobalLog.Error("VisibleItems is null or empty.", LogName);
+            return false;
+        }
         var result = VisibleItems.Any(condition);
 
         if (TabType is not InventoryType.CurrencyStash)
