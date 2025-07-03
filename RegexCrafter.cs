@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Input = RegexCrafter.Helpers.Input;
 using Vector2 = System.Numerics.Vector2;
 
@@ -57,7 +58,7 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
         Scripts = new Scripts(this);
         ElementHelper.Init(GameController.Game.IngameState.IngameUi.Cursor);
         Wait.Init(this);
-        Input.Init(this);
+        _ = Input.Init(this);
         _craftPlaceIdx = (int)Settings.CraftPlace;
         _currencyPlaceIdx = (int)Settings.CurrencyPlace;
         _craftList.AddRange([new Map(this), new DefaultCraft(this), new CustomCraft(this)]);
@@ -115,7 +116,7 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
 
         if (_craftList.Count != 0)
         {
-            ImGui.Combo("Craft Method", ref _currentCraftIndex, _craftList.Select(x => x.Name).ToArray(),
+            _ = ImGui.Combo("Craft Method", ref _currentCraftIndex, _craftList.Select(x => x.Name).ToArray(),
                 _craftList.Count);
         }
         //var craftingLogic = (int)Settings.CraftingLogic;
@@ -136,27 +137,21 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
         if (_currentOperation != null)
         {
             GlobalLog.Debug("Craft is running...", LogName);
-            TaskUtils.RunOrRestart(ref _currentOperation, () => null);
+            _ = TaskUtils.RunOrRestart(ref _currentOperation, () => null);
         }
         if (Cts is { Token.IsCancellationRequested: false })
         {
+
             if (!Stash.IsVisible && !PlayerInventory.IsVisible)
             {
-                Cts.Cancel();
-                GlobalLog.Debug("Craft is canceled.", LogName);
-                _ = Input.CleanKeys();
-                Cts = null;
-                _currentOperation = null;
+                CancelCraft();
             }
 
             if (ExileCore.Input.IsKeyDown(Settings.StopCraftHotKey.Value))
             {
-                Cts.Cancel();
-                GlobalLog.Debug("Craft is canceled.", LogName);
-                _ = Input.CleanKeys();
-                Cts = null;
-                _currentOperation = null;
+                CancelCraft();
             }
+
         }
 
         if (ExileCore.Input.IsKeyDown(Settings.StartCraftHotKey.Value) && _currentOperation == null)
@@ -165,14 +160,24 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
             try
             {
                 _currentOperation = _craftList[_currentCraftIndex].StartCrafting();
-                _ = Input.CleanKeys();
-
             }
             catch (Exception e)
             {
                 GlobalLog.Error(e.Message, LogName);
-                _ = Input.CleanKeys();
+            }
+            finally
+            {
+                Input.CleanKeys();
             }
         }
+    }
+
+    private void CancelCraft()
+    {
+        GlobalLog.Debug("Craft is canceled.", LogName);
+        Cts?.Cancel();
+        Input.CleanKeys();
+        Cts = null;
+        _currentOperation = null;
     }
 }

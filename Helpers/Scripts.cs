@@ -32,7 +32,8 @@ public class Scripts(RegexCrafter _core)
         }
         finally
         {
-            await Input.SimulateKeyEvent(Keys.LShiftKey, false);
+            await Input.SimulateKeyEvent(Keys.LShiftKey);
+            await Input.SimulateKeyEvent(Keys.LControlKey);
         }
     }
 
@@ -81,7 +82,8 @@ public class Scripts(RegexCrafter _core)
         }
         finally
         {
-            await Input.SimulateKeyEvent(Keys.LShiftKey, false);
+            await Input.SimulateKeyEvent(Keys.LShiftKey, false, true);
+            await Input.SimulateKeyEvent(Keys.LControlKey, false, true);
         }
     }
 
@@ -156,25 +158,35 @@ public class Scripts(RegexCrafter _core)
         string operationName
     )
     {
-        InventoryItemData hoveredItem = null;
-
-        var isSuccess = await Wait.For(() =>
+        try
         {
-            if (!TryGetHoveredItem(out var hoverItem)) return false;
-            if (!predicate(hoverItem)) return false;
-            hoveredItem = hoverItem;
-            return true;
-        }, operationName, 500);
+            InventoryItemData hoveredItem = null;
 
-        if (!isSuccess) return (false, hoveredItem);
-        if (!await Input.SimulateKeyEvent(Keys.C, true, true, Keys.LControlKey)) return (false, hoveredItem);
+            var isSuccess = await Wait.For(() =>
+            {
+                if (!TryGetHoveredItem(out var hoverItem)) return false;
+                if (!predicate(hoverItem)) return false;
+                hoveredItem = hoverItem;
+                return true;
+            }, operationName, 500);
 
-        hoveredItem.ClipboardText = Clipboard.GetClipboardText();
-        hoveredItem.ClipboardText = $"{hoveredItem.ClipboardText}explicit:{hoveredItem.ExplicitModsCount}\n";
+            if (!isSuccess) return (false, hoveredItem);
+            if (!await Input.SimulateKeyEvent(Keys.C, true, true, Keys.LControlKey))
+            {
+                GlobalLog.Error("Failed to simulate Ctrl+C key event.", LogName);
+                return (false, hoveredItem);
+            }
+            hoveredItem.ClipboardText = Clipboard.GetClipboardText();
+            hoveredItem.ClipboardText = $"{hoveredItem.ClipboardText}explicit:{hoveredItem.ExplicitModsCount}\n";
 
-        GlobalLog.Debug($"Clipboard text: {hoveredItem.ClipboardText}", LogName);
+            GlobalLog.Debug($"Clipboard text: {hoveredItem.ClipboardText}", LogName);
 
-        return (true, hoveredItem);
+            return (true, hoveredItem);
+        }
+        finally
+        {
+            await Input.SimulateKeyEvent(Keys.LControlKey, false, true);
+        }
     }
 
     public bool TryGetHoveredItem(out InventoryItemData item)
