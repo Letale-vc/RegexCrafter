@@ -180,6 +180,12 @@ public static class Input
 
     public static async SyncTask<bool> Click(MouseButtons button, RectangleF rec)
     {
+        if (rec.Width <= 0 || rec.Height <= 0)
+        {
+            GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
+            return false;
+        }
+
         var tryGetInputController = _core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>("InputHumanizer.TryGetInputController");
         if (tryGetInputController == null)
         {
@@ -197,6 +203,11 @@ public static class Input
 
     private static System.Numerics.Vector2 ToVector2Num(RectangleF rec)
     {
+        if (rec.Width <= 0 || rec.Height <= 0)
+        {
+            GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
+            return System.Numerics.Vector2.Zero;
+        }
         var position = rec.ClickRandomNum(20, 20);
         position += WindowOffset.ToVector2Num();
         return position;
