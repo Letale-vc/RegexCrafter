@@ -183,7 +183,7 @@ public static class Input
         if (rec.Width <= 0 || rec.Height <= 0)
         {
             GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
-            return false;
+            throw new ArgumentException("Invalid RectangleF for click", nameof(rec));
         }
 
         var tryGetInputController = _core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>("InputHumanizer.TryGetInputController");
@@ -206,7 +206,7 @@ public static class Input
         if (rec.Width <= 0 || rec.Height <= 0)
         {
             GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
-            return System.Numerics.Vector2.Zero;
+            throw new ArgumentException("Invalid RectangleF for click", nameof(rec));
         }
         var position = rec.ClickRandomNum(20, 20);
         position += WindowOffset.ToVector2Num();

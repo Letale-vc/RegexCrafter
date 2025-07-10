@@ -79,16 +79,26 @@ public static partial class RegexFinder
         var (exclude, include, singleInclude) = ParsePattern(pattern);
 
         // Check exclusions first
-        if (ContainsAnyPattern(linesList, exclude, out _))
-            return false;
+        if (exclude.Count > 0)
+        {
+            if (ContainsAnyPattern(linesList, exclude, out _))
+                return false;
+        }
 
         // Check single inclusion patterns
-        ContainsAnyPattern(linesList, singleInclude, out var singleFound);
-        if (singleFound.Count > 1)
-            return false;
+        if (singleInclude.Count > 0)
+        {
+            ContainsAnyPattern(linesList, singleInclude, out var singleFound);
+            if (singleFound.Count > 1)
+                return false;
+        }
 
         // Check required inclusion patterns
-        return ContainsAllPatterns(linesList, include, out _);
+        if (include.Count > 0)
+        {
+            return ContainsAllPatterns(linesList, include, out _);
+        }
+        return true;
     }
 
     public static bool ContainsAnyPattern(string text, IEnumerable<string> patterns, out List<string> foundPatterns)

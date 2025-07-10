@@ -207,29 +207,46 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
         {
             var (exclude, include, maxIncludeOnlyOne) = RegexFinder.ParsePattern(pattern);
 
-            var excludeResult = RegexFinder.ContainsAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
-            GlobalLog.Info(
-                $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
-                LogName);
-            if (excludeResult) continue;
-
-            RegexFinder.ContainsAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
-            if (foundPatterns2.Count > 1)
+            if (exclude.Count == 0 && include.Count == 0 && maxIncludeOnlyOne.Count == 0)
             {
-                GlobalLog.Info(
-                    $"Include Only one: need find {foundPatterns2.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns2)}]",
-                    LogName);
+                GlobalLog.Error($"Regex pattern is empty: {pattern}", LogName);
                 continue;
             }
 
-            var includeResult = RegexFinder.ContainsAllPatterns(item.ClipboardText, include, out var foundPatterns3);
-
-            if (!includeResult)
+            if (exclude.Count > 0)
             {
+                var excludeResult = RegexFinder.ContainsAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
                 GlobalLog.Info(
-                    $"Include: need find {foundPatterns3.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns3)}]",
+                    $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
                     LogName);
-                continue;
+                if (excludeResult) continue;
+            }
+
+            if (maxIncludeOnlyOne.Count > 0)
+            {
+
+                RegexFinder.ContainsAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
+                if (foundPatterns2.Count > 1)
+                {
+                    GlobalLog.Info(
+                        $"Include Only one: need find {foundPatterns2.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns2)}]",
+                        LogName);
+                    continue;
+                }
+            }
+
+
+            if (include.Count > 0)
+            {
+                var includeResult = RegexFinder.ContainsAllPatterns(item.ClipboardText, include, out var foundPatterns3);
+
+                if (!includeResult)
+                {
+                    GlobalLog.Info(
+                        $"Include: need find {foundPatterns3.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns3)}]",
+                        LogName);
+                    continue;
+                }
             }
 
             DoneCraftItem.Add(item);
