@@ -124,35 +124,43 @@ public class CustomCraft(RegexCrafter core) : CraftBase<CustomCraftState>(core)
             throw new ArgumentException("Clipboard text is empty or null.", nameof(item.ClipboardText));
 
         }
+
         foreach (var pattern in patterns)
         {
             var (exclude, include, maxIncludeOnlyOne) = RegexFinder.ParsePattern(pattern);
 
-            var excludeResult = RegexFinder.ContainsAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
-            GlobalLog.Info(
-                $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
-                LogName);
-            if (excludeResult) continue;
-
-            RegexFinder.ContainsAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
-            if (foundPatterns2.Count > 1)
+            if (exclude.Count > 0)
             {
+                var excludeResult = RegexFinder.ContainsAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
                 GlobalLog.Info(
-                    $"Include Only one: need find {foundPatterns2.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns2)}]",
+                    $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
                     LogName);
-                continue;
+                if (excludeResult) continue;
             }
 
-            var includeResult = RegexFinder.ContainsAllPatterns(item.ClipboardText, include, out var foundPatterns3);
-
-            if (!includeResult)
+            if (maxIncludeOnlyOne.Count > 0)
             {
-                GlobalLog.Info(
-                    $"Include: need find {foundPatterns3.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns3)}]",
-                    LogName);
-                continue;
+                RegexFinder.ContainsAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
+                if (foundPatterns2.Count > 1)
+                {
+                    GlobalLog.Info(
+                        $"Include Only one: need find {foundPatterns2.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns2)}]",
+                        LogName);
+                    continue;
+                }
             }
 
+            if (include.Count > 0)
+            {
+                var includeResult = RegexFinder.ContainsAllPatterns(item.ClipboardText, include, out var foundPatterns3);
+                if (!includeResult)
+                {
+                    GlobalLog.Info(
+                        $"Include: need find {foundPatterns3.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns3)}]",
+                        LogName);
+                    continue;
+                }
+            }
             return true;
         }
 
@@ -235,7 +243,7 @@ public class CustomCraft(RegexCrafter core) : CraftBase<CustomCraftState>(core)
                     if (resCondition)
                     {
                         GlobalLog.Info("### Main regex condition met after currency use", LogName);
-                        break; // Выходим из цикла foreach, так как условие выполнено
+                        break;
                     }
 
                 }

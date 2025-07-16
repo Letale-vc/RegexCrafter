@@ -72,10 +72,11 @@ public class Scripts(RegexCrafter _core)
             {
                 CancellationToken.ThrowIfCancellationRequested();
 
-                if (await ClickUntilCondition(item, currency, condition)) continue;
-
-                GlobalLog.Error($"Can't apply {currency} to item.", LogName);
-                return false;
+                if (!await ClickUntilCondition(item, currency, condition))
+                {
+                    GlobalLog.Error($"Can't apply {currency} to item.", LogName);
+                    return false;
+                }
             }
 
             return true;
@@ -87,14 +88,20 @@ public class Scripts(RegexCrafter _core)
         }
     }
 
-    private async SyncTask<bool> ClickUntilCondition(InventoryItemData item, string currecnyUseName,
+    private async SyncTask<bool> ClickUntilCondition(InventoryItemData item, string currencyUseName,
         Func<InventoryItemData, bool> condition, int maxCountClick = 3000, CancellationToken ct = default)
     {
         var countClick = 0;
         InventoryItemData itemHoverTemp = null;
         GlobalLog.Debug($"Clicking on item {item} until condition is met.", LogName);
-        while (CurrencyPlace.HasCurrency(currecnyUseName) && CraftingPlace.CanCraft())
+        while (CraftingPlace.CanCraft())
         {
+            if (_core.Settings.CraftPlace != CraftPlaceType.Stash && !CurrencyPlace.HasCurrency(currencyUseName))
+            {
+                GlobalLog.Error($"Currency {currencyUseName} is not available.", LogName);
+                return false;
+            }
+
             if (countClick >= maxCountClick)
             {
                 GlobalLog.Error($"Too many clicks. Max clicks: {maxCountClick}", LogName);
@@ -117,7 +124,11 @@ public class Scripts(RegexCrafter _core)
                 var (isSuccess, hoveredItem) = await WaitForHoveredItem(
                     hoverItem => hoverItem.Entity.Address == item.Entity.Address,
                     "Get the initial hovered item");
-                if (!isSuccess) return false;
+                if (!isSuccess)
+                {
+                    GlobalLog.Error("No hovered item found!", LogName);
+                    return false;
+                }
                 itemHoverTemp = hoveredItem;
             }
 
@@ -149,7 +160,7 @@ public class Scripts(RegexCrafter _core)
             itemHoverTemp = updatedHoveredItem;
             countClick++;
         }
-
+        GlobalLog.Debug($"Currency {currencyUseName} is not available or crafting place cannot be used.", LogName);
         return false;
     }
 
@@ -164,8 +175,16 @@ public class Scripts(RegexCrafter _core)
 
             var isSuccess = await Wait.For(() =>
             {
-                if (!TryGetHoveredItem(out var hoverItem)) return false;
-                if (!predicate(hoverItem)) return false;
+                if (!TryGetHoveredItem(out var hoverItem))
+                {
+                    GlobalLog.Debug("[WaitForHoveredItem] No hovered item found.", LogName);
+                    return false;
+                }
+                if (!predicate(hoverItem))
+                {
+                    GlobalLog.Debug($"[WaitForHoveredItem] Hovered item does not match predicate: {hoverItem}.", LogName);
+                    return false;
+                }
                 hoveredItem = hoverItem;
                 return true;
             }, operationName, 500);
@@ -173,13 +192,13 @@ public class Scripts(RegexCrafter _core)
             if (!isSuccess) return (false, hoveredItem);
             if (!await Input.SimulateKeyEvent(Keys.C, true, true, Keys.LControlKey))
             {
-                GlobalLog.Error("Failed to simulate Ctrl+C key event.", LogName);
+                GlobalLog.Error("[WaitForHoveredItem] Failed to simulate Ctrl+C key event.", LogName);
                 return (false, hoveredItem);
             }
             hoveredItem.ClipboardText = Clipboard.GetClipboardText();
             hoveredItem.ClipboardText = $"{hoveredItem.ClipboardText}explicit:{hoveredItem.ExplicitModsCount}\n";
 
-            GlobalLog.Debug($"Clipboard text: {hoveredItem.ClipboardText}", LogName);
+            GlobalLog.Debug($"[WaitForHoveredItem] Clipboard text: {hoveredItem.ClipboardText}", LogName);
 
             return (true, hoveredItem);
         }
@@ -195,10 +214,19 @@ public class Scripts(RegexCrafter _core)
         var uiHover = _core.GameController.Game.IngameState.UIHoverTooltip;
         var tooltip = uiHover.Tooltip;
         var poeEntity = uiHover.Entity;
-        if (tooltip == null || poeEntity.Address == 0 || !poeEntity.IsValid ||
-            _core.GameController.Files.BaseItemTypes.Translate(uiHover.Entity.Path) == null)
+        if (tooltip == null || poeEntity == null)
         {
-            GlobalLog.Debug("Hover item not found.", LogName);
+            GlobalLog.Debug("No hovered item found or tooltip is null.", LogName);
+            return false;
+        }
+        if (poeEntity.Address == 0 && !uiHover.IsValid)
+        {
+            GlobalLog.Debug("Hovered item is not valid.", LogName);
+            return false;
+        }
+        if (_core.GameController.Files.BaseItemTypes.Translate(uiHover.Entity.Path) == null)
+        {
+            GlobalLog.Debug($"Base item type not found for path: {uiHover.Entity.Path}", LogName);
             return false;
         }
 
