@@ -20,7 +20,6 @@ public class Stash : ICurrencyPlace, ICraftingPlace
     private CancellationToken CancellationToken => _core.Cts.Token;
     public bool IsVisible => _core.GameController.Game.IngameState.IngameUi.StashElement.IsVisible;
     public string CurrentTabName => CurrentTab.TabName;
-    public StashTab? CurrencyTabCash = null;
     public IList<ServerStashTab> ServerStashTabs => _core.GameController.Game.IngameState.ServerData
         .PlayerStashTabs.OrderBy(x => x.VisibleIndex).ToList();
     public List<string> AllTabNames => ServerStashTabs
@@ -163,17 +162,10 @@ public class Stash : ICurrencyPlace, ICraftingPlace
             GlobalLog.Error("Failed to switch to Currency tab.", LogName);
             return false;
         }
-        CurrencyTabCash ??= CurrentTab;
         return await CurrentTab.ContainsItemAsync(currency);
     }
     public bool HasCurrency(string currency)
     {
-        if (CurrencyTabCash == null)
-        {
-            GlobalLog.Error("Currency tab cash is null.", LogName);
-            return false;
-        }
-
         return CurrentTab.ContainsItem(currency);
     }
 
