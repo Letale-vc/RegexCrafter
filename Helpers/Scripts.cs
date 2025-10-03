@@ -1,80 +1,91 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Windows.Forms;
 using ExileCore.Shared;
 using RegexCrafter.Helpers.Enums;
 using RegexCrafter.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Windows.Forms;
 using Cursor = ExileCore.PoEMemory.MemoryObjects.Cursor;
 
 namespace RegexCrafter.Helpers;
 
-public class Scripts(RegexCrafter _core)
+public class Scripts(RegexCrafter core)
 {
     private const string LogName = "Scripts";
-    private Cursor Cursor => _core.GameController.Game.IngameState.IngameUi.Cursor;
-    private CancellationToken CancellationToken => _core.Cts.Token;
-    private ICurrencyPlace CurrencyPlace => _core.CurrencyPlace;
-    private ICraftingPlace CraftingPlace => _core.CraftingPlace;
+    private IInput Input => core.Input;
+    private Cursor Cursor => core.GameController.Game.IngameState.IngameUi.Cursor;
+    private Wait Wait => core.Wait;
+    private ICurrencyPlace CurrencyPlace => core.CurrencyPlace;
+    private ICraftingPlace CraftingPlace => core.CraftingPlace;
+
     public async SyncTask<bool> UseCurrencyToSingleItem(InventoryItemData item, string currency,
-        Func<InventoryItemData, bool> condition)
+        Func<InventoryItemData, CraftingAction> condition, CancellationToken ct = default)
     {
         try
         {
-            if (!await CurrencyPlace.TakeCurrencyForUseAsync(currency))
+            var (success, count) = await CurrencyPlace.TakeCurrencyForUseAsync(currency);
+
+            if (!success)
             {
                 GlobalLog.Error($"Failed to take {currency} for use.", LogName);
                 return false;
             }
-            if (!await Input.SimulateKeyEvent(Keys.LShiftKey, true, false)) return false;
-            return await ClickUntilCondition(item, currency, condition);
+
+            if (!await Input.KeyDown(Keys.LShiftKey, ct)) return false;
+            return await ClickUntilCondition(item, condition, count, ct);
         }
         finally
         {
-            await Input.SimulateKeyEvent(Keys.LShiftKey);
-            await Input.SimulateKeyEvent(Keys.LControlKey);
+            await Input.KeyUp(Keys.LShiftKey, ct);
+            await Input.KeyUp(Keys.LControlKey, ct);
         }
     }
 
-    public async SyncTask<bool> UseCurrencyOnMultipleItems(string currency,
-        Func<InventoryItemData, bool> conditionUseCurr, Func<InventoryItemData, bool> condition)
+    public async SyncTask<bool> UseCurrencyOnMultipleItems(string currencyUseName,
+        Func<InventoryItemData, CraftingAction> condition,
+        CancellationToken ct = default)
     {
-        var (Succes, Items) = await CraftingPlace.TryGetUsedItemsAsync(conditionUseCurr);
-        if (!Succes) return false;
-        if (Items.Count == 0)
+        var (success, items) = await CraftingPlace.TryGetItemsAsync();
+        if (!success) return false;
+        if (items.Count == 0)
         {
             GlobalLog.Debug("No items found.", LogName);
-            return true;
+            return false;
         }
-        return await UseCurrencyOnMultipleItems(Items, currency, condition);
+
+        return await UseCurrencyOnMultipleItems(items, currencyUseName, condition, ct);
     }
 
-    public async SyncTask<bool> UseCurrencyOnMultipleItems(IEnumerable<InventoryItemData> items, string currency,
-        Func<InventoryItemData, bool> condition)
+    public async SyncTask<bool> UseCurrencyOnMultipleItems(IEnumerable<InventoryItemData> items, string currencyUseName,
+        Func<InventoryItemData, CraftingAction> condition,
+        CancellationToken ct = default)
     {
-        GlobalLog.Debug($"Start using {currency} to items.", LogName);
+        GlobalLog.Debug($"Start using {currencyUseName} to items.", LogName);
         try
         {
-            if (!await CurrencyPlace.TakeCurrencyForUseAsync(currency))
+            var (success, count) = await CurrencyPlace.TakeCurrencyForUseAsync(currencyUseName);
+
+            if (!success)
             {
-                GlobalLog.Error($"Failed to take {currency} for use.", LogName);
+                GlobalLog.Error($"Failed to take {currencyUseName} for use.", LogName);
                 return false;
             }
-            if (!await Input.SimulateKeyEvent(Keys.LShiftKey, true, false))
+
+            if (!await Input.KeyDown(Keys.LShiftKey, ct))
             {
                 GlobalLog.Error("Failed to hold Shift key.", LogName);
                 return false;
             }
+
             if (!await CraftingPlace.PrepareCraftingPlace()) return false;
 
             foreach (var item in items)
             {
-                CancellationToken.ThrowIfCancellationRequested();
+                ct.ThrowIfCancellationRequested();
 
-                if (!await ClickUntilCondition(item, currency, condition))
+                if (!await ClickUntilCondition(item, condition, count, ct))
                 {
-                    GlobalLog.Error($"Can't apply {currency} to item.", LogName);
+                    GlobalLog.Error($"Can't apply {currencyUseName} to item.", LogName);
                     return false;
                 }
             }
@@ -83,25 +94,20 @@ public class Scripts(RegexCrafter _core)
         }
         finally
         {
-            await Input.SimulateKeyEvent(Keys.LShiftKey, false, true);
-            await Input.SimulateKeyEvent(Keys.LControlKey, false, true);
+            await Input.KeyUp(Keys.LShiftKey, ct);
+            await Input.KeyUp(Keys.LControlKey, ct);
         }
     }
 
-    private async SyncTask<bool> ClickUntilCondition(InventoryItemData item, string currencyUseName,
-        Func<InventoryItemData, bool> condition, int maxCountClick = 3000, CancellationToken ct = default)
+    private async SyncTask<bool> ClickUntilCondition(InventoryItemData item,
+        Func<InventoryItemData, CraftingAction> condition,
+        int maxCountClick = 3000, CancellationToken ct = default)
     {
         var countClick = 0;
-        InventoryItemData itemHoverTemp = null;
+        InventoryItemData oldHoverItem = null;
         GlobalLog.Debug($"Clicking on item {item} until condition is met.", LogName);
         while (CraftingPlace.CanCraft())
         {
-            if (_core.Settings.CraftPlace != CraftPlaceType.Stash && !CurrencyPlace.HasCurrency(currencyUseName))
-            {
-                GlobalLog.Error($"Currency {currencyUseName} is not available.", LogName);
-                return false;
-            }
-
             if (countClick >= maxCountClick)
             {
                 GlobalLog.Error($"Too many clicks. Max clicks: {maxCountClick}", LogName);
@@ -119,36 +125,47 @@ public class Scripts(RegexCrafter _core)
             }
 
             // Get the initial hovered item
-            if (itemHoverTemp == null)
+            if (oldHoverItem == null)
             {
                 var (isSuccess, hoveredItem) = await WaitForHoveredItem(
                     hoverItem => hoverItem.Entity.Address == item.Entity.Address,
-                    "Get the initial hovered item");
+                    "Get the initial hovered item", ct);
                 if (!isSuccess)
                 {
                     GlobalLog.Error("No hovered item found!", LogName);
                     return false;
                 }
-                itemHoverTemp = hoveredItem;
+
+                oldHoverItem = hoveredItem;
             }
 
+            var craftingAction = condition(oldHoverItem);
 
-            // Check if the item meets the condition after applying currency
-            if (condition(itemHoverTemp))
+            switch (craftingAction)
             {
-                GlobalLog.Info($"Item {item} meets the condition.", LogName);
-                return true;
+                case CraftingAction.Skip:
+                    GlobalLog.Debug("Item is not valid for crafting, skipping click.", LogName);
+                    return true;
+                // Check if the item meets the condition after applying currency
+                case CraftingAction.Complete:
+                    GlobalLog.Info($"Item {item} meets the condition.", LogName);
+                    return true;
+                case CraftingAction.Continue:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
+
 
             // Apply the currency by clicking
             GlobalLog.Debug($"Click on item {item}.", LogName);
-            await Input.Click();
+            await Input.Click(ct);
 
             // Wait for the item to update after applying currency
             GlobalLog.Debug("Wait for item update after applying currency.", LogName);
             var (isSuccessAfterClick, updatedHoveredItem) = await WaitForHoveredItem(
-                hoverItem => hoverItem.Entity.Address != itemHoverTemp.Entity.Address,
-                "Apply currency to item");
+                hoverItem => hoverItem.Entity.Address != oldHoverItem.Entity.Address,
+                "Apply currency to item", ct);
 
             if (!isSuccessAfterClick)
             {
@@ -157,16 +174,17 @@ public class Scripts(RegexCrafter _core)
             }
 
             GlobalLog.Debug($"Updated hovered item: {updatedHoveredItem}.", LogName);
-            itemHoverTemp = updatedHoveredItem;
+            oldHoverItem = updatedHoveredItem;
             countClick++;
         }
-        GlobalLog.Debug($"Currency {currencyUseName} is not available or crafting place cannot be used.", LogName);
+
+        GlobalLog.Debug("Currency is not available or crafting place cannot be used.", LogName);
         return false;
     }
 
     public async SyncTask<(bool isSuccess, InventoryItemData hoveredItem)> WaitForHoveredItem(
         Func<InventoryItemData, bool> predicate,
-        string operationName
+        string operationName, CancellationToken ct = default
     )
     {
         try
@@ -180,21 +198,27 @@ public class Scripts(RegexCrafter _core)
                     GlobalLog.Debug("[WaitForHoveredItem] No hovered item found.", LogName);
                     return false;
                 }
+
                 if (!predicate(hoverItem))
                 {
-                    GlobalLog.Debug($"[WaitForHoveredItem] Hovered item does not match predicate: {hoverItem}.", LogName);
+                    GlobalLog.Debug($"[WaitForHoveredItem] Hovered item does not match predicate: {hoverItem}.",
+                        LogName);
                     return false;
                 }
+
                 hoveredItem = hoverItem;
                 return true;
-            }, operationName, 500);
+            }, operationName, 500, ct);
 
             if (!isSuccess) return (false, hoveredItem);
-            if (!await Input.SimulateKeyEvent(Keys.C, true, true, Keys.LControlKey))
+            if (!await Input.SimulateKeyEvent(Keys.C, Keys.LControlKey, ct))
             {
                 GlobalLog.Error("[WaitForHoveredItem] Failed to simulate Ctrl+C key event.", LogName);
                 return (false, hoveredItem);
             }
+
+            await Wait.Sleep(50, ct);
+
             hoveredItem.ClipboardText = Clipboard.GetClipboardText();
             hoveredItem.ClipboardText = $"{hoveredItem.ClipboardText}explicit:{hoveredItem.ExplicitModsCount}\n";
 
@@ -204,14 +228,14 @@ public class Scripts(RegexCrafter _core)
         }
         finally
         {
-            await Input.SimulateKeyEvent(Keys.LControlKey, false, true);
+            await Input.KeyUp(Keys.LControlKey, ct);
         }
     }
 
     public bool TryGetHoveredItem(out InventoryItemData item)
     {
         item = null;
-        var uiHover = _core.GameController.Game.IngameState.UIHoverTooltip;
+        var uiHover = core.GameController.Game.IngameState.UIHoverTooltip;
         var tooltip = uiHover.Tooltip;
         var poeEntity = uiHover.Entity;
         if (tooltip == null || poeEntity == null)
@@ -219,12 +243,14 @@ public class Scripts(RegexCrafter _core)
             GlobalLog.Debug("No hovered item found or tooltip is null.", LogName);
             return false;
         }
+
         if (poeEntity.Address == 0 && !uiHover.IsValid)
         {
             GlobalLog.Debug("Hovered item is not valid.", LogName);
             return false;
         }
-        if (_core.GameController.Files.BaseItemTypes.Translate(uiHover.Entity.Path) == null)
+
+        if (core.GameController.Files.BaseItemTypes.Translate(uiHover.Entity.Path) == null)
         {
             GlobalLog.Debug($"Base item type not found for path: {uiHover.Entity.Path}", LogName);
             return false;

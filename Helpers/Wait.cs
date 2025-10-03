@@ -6,46 +6,45 @@ using ExileCore.Shared;
 
 namespace RegexCrafter.Helpers;
 
-internal static class Wait
+public class Wait
 {
     private const string LogName = "Wait";
-    private static RegexCrafter _core;
 
-    private static GameController Gc => _core.GameController;
-    private static int Latency => Gc.Game.IngameState.ServerData.Latency;
-    private static CancellationToken CancellationToken => _core.Cts.Token;
-
-    public static void Init(RegexCrafter core)
+    public Wait(GameController gc)
     {
-        _core = core;
+        Gc = gc;
     }
 
-    public static SyncTask<bool> SleepSafe(int min, int max)
+    private GameController Gc { get; }
+    private int Latency => Gc.Game.IngameState.ServerData.Latency;
+
+    public SyncTask<bool> SleepSafe(int min, int max, CancellationToken ct = default)
     {
         var delay = Latency > max ? Latency : new Random().Next(min, max);
         GlobalLog.Debug($"[{LogName}]  {delay} ms.", LogName);
-        return Sleep(delay);
+        return Sleep(delay, ct);
     }
 
-    public static SyncTask<bool> SleepSafe(int ms)
+    public SyncTask<bool> SleepSafe(int ms, CancellationToken ct = default)
     {
         var delay = Math.Max(Latency, ms);
-        return Sleep(delay);
+        return Sleep(delay, ct);
     }
 
-    public static SyncTask<bool> Sleep(int min, int max)
+    public SyncTask<bool> Sleep(int min, int max, CancellationToken ct = default)
     {
         var delay = new Random().Next(min, max);
-        return Sleep(delay);
+        return Sleep(delay, ct);
     }
 
-    public static SyncTask<bool> LatencySleep()
+    public SyncTask<bool> LatencySleep(CancellationToken ct = default)
     {
         var timeout = Math.Max((int)(Latency * 1.15), 35);
-        return Sleep(timeout);
+        return Sleep(timeout, ct);
     }
 
-    public static async SyncTask<bool> For(Func<bool> condition, string desc, int timeout = 3000)
+    public async SyncTask<bool> For(Func<bool> condition, string desc, int timeout = 3000,
+        CancellationToken ct = default)
     {
         if (condition())
             return true;
@@ -53,7 +52,7 @@ internal static class Wait
         var timer = Stopwatch.StartNew();
         while (timer.ElapsedMilliseconds < timeout)
         {
-            CancellationToken.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
             GlobalLog.Info(
                 $"Waiting for {desc} ({Math.Round(timer.ElapsedMilliseconds / 1000f, 2)}/{timeout / 1000f}).", LogName);
             await TaskUtils.NextFrame();
@@ -65,13 +64,13 @@ internal static class Wait
         return false;
     }
 
-    public static async SyncTask<bool> Sleep(int ms)
+    public async SyncTask<bool> Sleep(int ms, CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
         GlobalLog.Debug($"Wait {ms} ms.", LogName);
         while (sw.Elapsed < TimeSpan.FromMilliseconds(ms))
         {
-            CancellationToken.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
             await TaskUtils.NextFrame();
         }
 

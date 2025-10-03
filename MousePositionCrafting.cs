@@ -1,12 +1,9 @@
-﻿using ExileCore.Shared;
+﻿using System;
+using System.Collections.Generic;
+using ExileCore.Shared;
 using RegexCrafter.Helpers;
 using RegexCrafter.Interface;
 using SharpDX;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RegexCrafter;
 
@@ -14,12 +11,15 @@ public class MousePositionCrafting : ICraftingPlace
 {
     private const string LogName = "MousePositionCrafting";
     private readonly RegexCrafter _core;
-    private Scripts Scripts => _core.Scripts;
-    private RectangleF? _lastItemRect = null;
+    private RectangleF? _lastItemRect;
+
     public MousePositionCrafting(RegexCrafter core)
     {
         _core = core ?? throw new ArgumentNullException(nameof(core));
     }
+
+    private IInput Input => _core.Input;
+    private Scripts Scripts => _core.Scripts;
 
     public bool SupportChainCraft => false;
 
@@ -28,7 +28,13 @@ public class MousePositionCrafting : ICraftingPlace
         return SyncTask.FromResult(true);
     }
 
-    public async SyncTask<(bool Succes, List<InventoryItemData> Items)> TryGetUsedItemsAsync(Func<InventoryItemData, bool> conditionUse)
+    public SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync()
+    {
+        return TryGetItemsAsync(_ => true);
+    }
+
+    public async SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync(
+        Func<InventoryItemData, bool> conditionUse)
     {
         var (isSuccess, item) = await Scripts.WaitForHoveredItem(
             hoverItem => hoverItem != null,
@@ -45,14 +51,15 @@ public class MousePositionCrafting : ICraftingPlace
                 }
 
                 (isSuccess, item) = await Scripts.WaitForHoveredItem(
-                                 hoverItem => hoverItem != null,
-                                 "Get item under cursor after mouse move");
+                    hoverItem => hoverItem != null,
+                    "Get item under cursor after mouse move");
                 if (!isSuccess)
                 {
                     _lastItemRect = null;
                     GlobalLog.Error("Still no item under cursor after moving mouse to last position", LogName);
                 }
             }
+
             _lastItemRect = null;
             GlobalLog.Error("No item under cursor", LogName);
             return (false, []);
@@ -61,7 +68,6 @@ public class MousePositionCrafting : ICraftingPlace
 
         if (!conditionUse(item))
         {
-
             _lastItemRect = null;
             GlobalLog.Debug("Item under cursor doesn't meet conditions use", LogName);
             return (true, []);
@@ -70,6 +76,7 @@ public class MousePositionCrafting : ICraftingPlace
         _lastItemRect = item.GetClientRectCache;
         return (true, [item]);
     }
+
     public bool CanCraft()
     {
         return _core.GameController.Game.IngameState.UIHoverTooltip.IsVisible;

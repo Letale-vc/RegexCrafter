@@ -1,218 +1,174 @@
-using ExileCore.Shared;
-using ExileCore.Shared.Enums;
+using System;
+using System.Linq;
+using System.Numerics;
 using ImGuiNET;
 using RegexCrafter.Helpers;
 using RegexCrafter.Helpers.Enums;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 
 namespace RegexCrafter.CraftsMethods;
 
 public class MapState : CraftState
 {
-    public CurrencyMethodCraftType CurrencyMethodCraftType = CurrencyMethodCraftType.Chaos;
     public int TypeChisel;
     public bool UseAddQuality;
+    public CurrencyMethodCraftType CurrencyMethodCraftType { get; set; } = CurrencyMethodCraftType.Chaos;
 }
 
 public class Map(RegexCrafter core) : CraftBase<MapState>(core)
 {
     private const string LogName = "CraftMap";
 
+    private const string BaseUseCondition = "\"!corrupted|currency\" \"map\"";
+
     private readonly string[] _chiselList = CurrencyNames.GetChiselNames().ToArray();
 
     private readonly CurrencyMethodCraftType[] _typeMethodCraft =
-        [CurrencyMethodCraftType.Chaos, CurrencyMethodCraftType.ScouringAndAlchemy];
+    [
+        CurrencyMethodCraftType.Chaos,
+        CurrencyMethodCraftType.ScouringAndAlchemy
+    ];
 
-    public override MapState CraftState { get; set; } = new();
-
+    protected override MapState CurrentState { get; set; } = new();
     public override string Name { get; } = "Map";
 
     public override void DrawSettings()
     {
         base.DrawSettings();
-        var selectedMethod = (int)CraftState.CurrencyMethodCraftType;
+        var selectedMethod = (int)CurrentState.CurrencyMethodCraftType;
         if (ImGui.Combo("Type Method craft", ref selectedMethod,
                 _typeMethodCraft.Select(x => x.GetDescription()).ToArray(), _typeMethodCraft.Length))
-            CraftState.CurrencyMethodCraftType = (CurrencyMethodCraftType)selectedMethod;
-        ImGui.Checkbox("Use Add Quality", ref CraftState.UseAddQuality);
-        if (CraftState.UseAddQuality)
+        {
+            CurrentState.CurrencyMethodCraftType = (CurrencyMethodCraftType)selectedMethod;
+        }
+
+        ImGui.Checkbox("Use Add Quality", ref CurrentState.UseAddQuality);
+
+        if (CurrentState.UseAddQuality)
         {
             ImGui.SameLine();
-            ImGui.Combo("Type Chisel", ref CraftState.TypeChisel, _chiselList, _chiselList.Length);
+            ImGui.Combo("Type Chisel", ref CurrentState.TypeChisel, _chiselList, _chiselList.Length);
         }
 
         ImGui.Separator();
-        if (CraftState.RegexPatterns.Count == 0) CraftState.RegexPatterns.Add(string.Empty);
+        if (CurrentState.Recipe.MainConditions.Count == 0)
+        {
+            CurrentState.Recipe.AddMainCondition(string.Empty);
+        }
+
         ImGui.Dummy(new Vector2(0, 10));
         ImGui.Separator();
         ImGui.Dummy(new Vector2(0, 10));
         ImGui.LabelText("##MainConditionsMap", "Main Conditions");
-        for (var i = 0; i < CraftState.RegexPatterns.Count; i++)
+
+        var indexToRemove = -1;
+        for (var i = 0; i < CurrentState.Recipe.MainConditions.Count; i++)
         {
-            var patternTemp = CraftState.RegexPatterns[i];
+            var patternTemp = CurrentState.Recipe.MainConditions[i];
             if (ImGui.InputText($"Your regex pattern {i}", ref patternTemp, 1024))
-                CraftState.RegexPatterns[i] = patternTemp;
+            {
+                CurrentState.Recipe.MainConditions[i] = patternTemp;
+            }
+
             ImGui.SameLine();
-            if (!ImGui.Button($"Remove##{i}")) continue;
-            GlobalLog.Debug($"Remove pattern:{CraftState.RegexPatterns[i]}.", LogName);
-            CraftState.RegexPatterns.RemoveAt(i);
+            if (ImGui.Button($"Remove##{i}"))
+            {
+                indexToRemove = i;
+            }
             //tempPatternList.Add(i);
         }
 
-        if (ImGui.Button("Add Regex Pattern")) CraftState.RegexPatterns.Add(string.Empty);
-    }
-
-    protected override async SyncTask<bool> Start()
-    {
-        if (!await CurrencyUseHelper.IdentifyItems(x => x.IsMap))
+        if (indexToRemove >= 0)
         {
-            GlobalLog.Error("Feiled indentify items", LogName);
-            return false;
+            CurrentState.Recipe.MainConditions.RemoveAt(indexToRemove);
         }
 
-        // apply chisel
-        if (CraftState.UseAddQuality && !await Scripts.UseCurrencyOnMultipleItems(_chiselList[CraftState.TypeChisel],
-                x => x.IsMap && !x.IsCorrupted, RegexQualityCondition)) return false;
+        if (ImGui.Button("Add Regex Pattern"))
+        {
+            CurrentState.Recipe.AddMainCondition(string.Empty);
+        }
+    }
 
-        switch (CraftState.CurrencyMethodCraftType)
+    private void ApplyMethodPreset()
+    {
+        switch (CurrentState.CurrencyMethodCraftType)
         {
             case CurrencyMethodCraftType.Chaos:
-                return await ChaosSpam();
+                GlobalLog.Debug("Load Chaos spam preset.", LogName);
+                LoadChaosSpam();
+                break;
             case CurrencyMethodCraftType.ScouringAndAlchemy:
-                return await ScouringAndAlchemy();
+                GlobalLog.Debug("Load Scouring and Alchemy preset.", LogName);
+                LoadScouringAndAlchemy();
+                break;
+            case CurrencyMethodCraftType.AlterationSpam:
+                GlobalLog.Debug("Load Alteration spam preset.", LogName);
+                LoadAlterationSpam();
+                break;
             default:
-                GlobalLog.Error("Cannot find type method craft.", LogName);
-                return false;
+                throw new ArgumentOutOfRangeException();
         }
     }
 
-    private bool RegexQualityCondition(InventoryItemData item)
+    private void ApplyQualityStep()
     {
-        return _chiselList[CraftState.TypeChisel] switch
+        if (CurrentState.Recipe.CraftSteps[0].Currency == _chiselList[CurrentState.TypeChisel])
         {
-            CurrencyNames.CartographersChisel => RegexFinder.ContainsMatchInText(item.ClipboardText, "lity:.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfAvarice => RegexFinder.ContainsMatchInText(item.ClipboardText, "urr.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfDivination => RegexFinder.ContainsMatchInText(item.ClipboardText, "div.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfProcurement => RegexFinder.ContainsMatchInText(item.ClipboardText, "ty\\).*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfScarabs => RegexFinder.ContainsMatchInText(item.ClipboardText, "sca.*([2-9].|1..)%"),
-            CurrencyNames.ChiselOfProliferation =>
-                RegexFinder.ContainsMatchInText(item.ClipboardText, "ze\\).*([2-9].|1..)%"),
-            _ => RegexFinder.ContainsMatchInText(item.ClipboardText, "Quality:*.*([2-9].|1..)%")
+            return;
+        }
+
+        if (_chiselList.Contains(CurrentState.Recipe.CraftSteps[0].Currency))
+        {
+            CurrentState.Recipe.RemoveStepAt(0);
+        }
+
+        var chiselStep = _chiselList[CurrentState.TypeChisel] switch
+        {
+            CurrencyNames.CartographersChisel => CraftStepFactory.GetCartographersChiselStep(),
+            CurrencyNames.ChiselOfAvarice => CraftStepFactory.GetChiselOfAvariceStep(),
+            CurrencyNames.ChiselOfDivination => CraftStepFactory.GetChiselOfDivinationStep(),
+            CurrencyNames.ChiselOfProcurement => CraftStepFactory.GetChiselOfProcurementStep(),
+            CurrencyNames.ChiselOfScarabs => CraftStepFactory.GetChiselOfScarabsStep(),
+            CurrencyNames.ChiselOfProliferation => CraftStepFactory.GetChiselOfProliferationStep(),
+            _ => throw new ArgumentOutOfRangeException()
         };
+
+        CurrentState.Recipe.InsertStep(chiselStep);
     }
 
-    private async SyncTask<bool> ScouringAndAlchemy()
+    protected override void BeforeStart()
     {
-        var maps = await GetValidMaps();
-
-        if (maps == null) return false;
-
-        while (maps.Count > 0)
+        if (!CurrentState.Recipe.BaseUseCondition.Contains(BaseUseCondition))
         {
-            CancellationToken.ThrowIfCancellationRequested();
-            //apply scouring
-            if (!await CurrencyUseHelper.ScouringItems(RegexCondition)) return false;
-
-            // apply orb of alchemy
-            if (!await CurrencyUseHelper.AlchemyItems(RegexCondition)) return false;
-
-            maps = await GetValidMaps();
-            if (maps == null) return false;
+            CurrentState.Recipe.BaseUseCondition = BaseUseCondition;
         }
 
-        return true;
+        ApplyMethodPreset();
+        ApplyQualityStep();
     }
 
-    private async SyncTask<List<InventoryItemData>> GetValidMaps()
+    private void LoadScouringAndAlchemy()
     {
-        var (Succes, Items) = await CraftingPlace.TryGetUsedItemsAsync(x =>
-            DoneCraftItem.All(s => s.Entity.Address != x.Entity.Address) && !x.IsCorrupted && x.IsMap);
-        return Items;
+        CurrentState.Recipe.RemoveAllSteps();
+        var scouringStep = CraftStepFactory.GetScouringStep();
+        var alchemyStep = CraftStepFactory.GetAlchemyStep();
+        CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep]);
     }
 
-    private async SyncTask<bool> ChaosSpam()
+    private void LoadAlterationSpam()
     {
-        if (Settings.CraftPlace == CraftPlaceType.MousePosition)
-        {
-            var (isSuccess, item) = await Scripts.WaitForHoveredItem(
-                hoverItem => hoverItem != null,
-                "Get the initial hovered item");
+        CurrentState.Recipe.RemoveAllSteps();
+        var onlyRareScouringStep = CraftStepFactory.GetOnlyRareScouringStep();
+        var transmutationStep = CraftStepFactory.GetTransmutationStep();
+        var alterationStep = CraftStepFactory.GetAlterationStep();
+        CurrentState.Recipe.AddRangeStep([onlyRareScouringStep, transmutationStep, alterationStep]);
+    }
 
-            if (!isSuccess)
-            {
-                GlobalLog.Error("### No hovered item found!", LogName);
-                return false;
-            }
-
-            if (item.IsCorrupted || !item.IsMap) return false;
-            if (CraftState.UseAddQuality &&
-                !await Scripts.UseCurrencyToSingleItem(item, _chiselList[CraftState.TypeChisel], x =>
-                {
-                    item = x;
-                    return RegexQualityCondition(x);
-                }))
-                return false;
-            if (RegexCondition(item)) return true;
-
-            switch (item.Rarity)
-            {
-                case ItemRarity.Normal:
-                    // 1. Use alchemy
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfAlchemy,
-                            x =>
-                            {
-                                item = x;
-                                return x.Rarity == ItemRarity.Rare;
-                            }))
-                        return false;
-                    break;
-                case ItemRarity.Magic:
-                    // 1. Scouring to Normal 
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfScouring,
-                            x =>
-                            {
-                                item = x;
-                                return x.Rarity == ItemRarity.Normal;
-                            }))
-                        return false;
-                    // 2. Alchemy to Rare 
-                    if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.OrbOfAlchemy,
-                            x =>
-                            {
-                                item = x;
-                                return x.Rarity == ItemRarity.Rare;
-                            }))
-                        return false;
-                    break;
-                case ItemRarity.Rare:
-                    break;
-                default:
-                    // else return false 
-                    return false;
-            }
-
-            if (!await Scripts.UseCurrencyToSingleItem(item, CurrencyNames.ChaosOrb, x =>
-                {
-                    item = x;
-                    return RegexCondition(x);
-                }))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        if (!await CurrencyUseHelper.ScouringItems(x => x.IsMap && x.Rarity == ItemRarity.Magic, RegexCondition))
-            return false;
-        // apply orb of alchemy
-        if (!await CurrencyUseHelper.AlchemyItems(x => x.IsMap, RegexCondition)) return false;
-        // chaos spam
-        if (!await CurrencyUseHelper.ChaosSpamItems(x => x.IsMap, RegexCondition)) return false;
-
-
-        return true;
+    private void LoadChaosSpam()
+    {
+        CurrentState.Recipe.RemoveAllSteps();
+        var scouringStep = CraftStepFactory.GetOnlyMagicScouringStep();
+        var alchemyStep = CraftStepFactory.GetAlchemyStep();
+        var chaosStep = CraftStepFactory.GetChaosSpamStep();
+        CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep, chaosStep]);
     }
 }

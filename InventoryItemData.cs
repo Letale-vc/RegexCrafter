@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.MemoryObjects;
@@ -5,11 +10,6 @@ using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using RegexCrafter.Helpers;
 using SharpDX;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Windows.Forms;
 
 namespace RegexCrafter;
 
@@ -29,16 +29,16 @@ public partial class InventoryItemData
     public List<string> HumanCraftStats;
     public List<string> HumanImpStats;
     public List<string> HumanStats;
-    public bool IsCorrupted = false;
+    public bool IsCorrupted;
     public bool IsCrusader = false;
     public bool IsElder = false;
     public bool IsHunter = false;
     public bool IsIdentified = true;
-    public bool IsMap = false;
-    public bool IsRedeemer = false;
+    public bool IsMap;
+    public bool IsRedeemer;
     public bool IsShaper = false;
     public bool IsSynthesized = false;
-    public bool IsT17Map = false;
+    public bool IsT17Map;
     public bool IsWarlord = false;
 
     //public string[] ToolTipStrings;
@@ -48,6 +48,7 @@ public partial class InventoryItemData
     public ItemRarity Rarity;
     public List<string> Requirements = [];
     public string Sockets;
+    public int StackSize;
     public string UniqueName;
 
     public InventoryItemData(Element el)
@@ -58,15 +59,17 @@ public partial class InventoryItemData
             Entity = el.Entity;
             GetClientRectCache = el.GetClientRectCache;
 
+            if (Entity.TryGetComponent<Stack>(out var stack)) StackSize = stack.Size;
+
             if (Entity.TryGetComponent<Quality>(out var quality)) Quality = quality.ItemQuality;
 
-            if (Entity.TryGetComponent<Base>(out var @base))
+            if (Entity.TryGetComponent<Base>(out var baseInf))
             {
-                BaseName = @base.Name;
-                ClassName = @base.Info.BaseItemTypeDat.ClassName;
+                BaseName = baseInf.Name;
+                ClassName = baseInf.Info.BaseItemTypeDat.ClassName;
                 ItemClass = NormalizeText(ClassName);
-                IsCorrupted = @base.isCorrupted;
-                IsRedeemer = @base.isRedeemer;
+                IsCorrupted = baseInf.isCorrupted;
+                IsRedeemer = baseInf.isRedeemer;
             }
 
             if (Entity.TryGetComponent<Sockets>(out var sockets))
@@ -150,19 +153,19 @@ public partial class InventoryItemData
         return textList;
     }
 
-    public async SyncTask<bool> MoveMouseToItem()
+    public SyncTask<bool> MoveMouseToItem()
     {
-        return await Input.MoveMouseToScreenPosition(GetClientRectCache);
+        return Element.MoveTo();
     }
 
-    public async SyncTask<bool> Click()
+    public SyncTask<bool> Click()
     {
-        return await Input.Click(GetClientRectCache);
+        return Element.MoveAndClick();
     }
 
-    public async SyncTask<bool> Click(MouseButtons button)
+    public SyncTask<bool> Click(MouseButtons button)
     {
-        return await Input.Click(button, GetClientRectCache);
+        return Element.MoveAndClick(button);
     }
 
     public async SyncTask<bool> MoveAndTakeForUse()

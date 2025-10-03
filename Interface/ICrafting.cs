@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace RegexCrafter.Interface
@@ -11,7 +12,7 @@ namespace RegexCrafter.Interface
     {
         public string Name { get; }
         public void DrawSettings();
-        public SyncTask<bool> StartCrafting();
+        public SyncTask<bool> Start(CancellationToken ct);
         public void OnClose();
         public void Render();
         public void Clean();

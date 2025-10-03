@@ -1,28 +1,32 @@
-﻿using ExileCore.PoEMemory;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Elements;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
-using SharpDX;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace RegexCrafter.Helpers;
 
-public class StashTab(RegexCrafter _core)
+public class StashTab(RegexCrafter core)
 {
     private const string LogName = "StashTab";
-    public int Index => _core.GameController.Game.IngameState.IngameUi.StashElement.IndexVisibleStash;
+    public int Index => core.GameController.Game.IngameState.IngameUi.StashElement.IndexVisibleStash;
     public bool IsVisible => Inventory.IsVisible;
     public InventoryType TabType => Inventory.InvType;
-    private StashTabContainerInventory StashTabContainerInventory => _core.GameController?.Game?.IngameState?.IngameUi?.StashElement?.Inventories[Index];
+
+    private StashTabContainerInventory StashTabContainerInventory =>
+        core.GameController?.Game?.IngameState?.IngameUi?.StashElement?.Inventories[Index];
+
     public string TabName => StashTabContainerInventory?.TabName ?? string.Empty;
     public Inventory Inventory => StashTabContainerInventory?.Inventory;
 
-    public List<InventoryItemData> VisibleItems => Inventory?.VisibleInventoryItems.Where(x => x != null && x.Type == ElementType.InventoryItem).Select(x => new InventoryItemData(x)).ToList();
+    public List<InventoryItemData> VisibleItems => Inventory?.VisibleInventoryItems
+        .Where(x => x != null && x.Type == ElementType.InventoryItem).Select(x => new InventoryItemData(x)).ToList();
 
-    public bool IsPublic => _core.GameController.Game.IngameState.ServerData.PlayerStashTabs.First(x => x.Name == TabName)
+    public bool IsPublic => core.GameController.Game.IngameState.ServerData.PlayerStashTabs
+        .First(x => x.Name == TabName)
         .Flags.HasFlag(InventoryTabFlags.Public);
 
     public bool ContainsItem(string baseName)
@@ -33,11 +37,10 @@ public class StashTab(RegexCrafter _core)
             GlobalLog.Error("VisibleItems is null or empty.", LogName);
             return false;
         }
-        ;
 
         return VisibleItems.Any(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
-
     }
+
     public async SyncTask<bool> ContainsItemAsync(string baseName)
     {
         if (!IsVisible) return false;
@@ -46,20 +49,17 @@ public class StashTab(RegexCrafter _core)
             GlobalLog.Error("VisibleItems is null or empty.", LogName);
             return false;
         }
-        ;
 
         var result = VisibleItems.Any(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
 
-        if (TabType is not InventoryType.CurrencyStash)
-        {
-            return result;
-        }
+        if (TabType is not InventoryType.CurrencyStash) return result;
 
         if (!await SwitchCurrencyTab())
         {
             GlobalLog.Error("Failed to switch to Currency tab.", LogName);
             return false;
         }
+
         return VisibleItems.Any(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
     }
 
@@ -71,59 +71,48 @@ public class StashTab(RegexCrafter _core)
             GlobalLog.Error("VisibleItems is null or empty.", LogName);
             return false;
         }
+
         var result = VisibleItems.Any(condition);
 
-        if (TabType is not InventoryType.CurrencyStash)
-        {
-            return result;
-        }
+        if (TabType is not InventoryType.CurrencyStash) return result;
 
         if (!await SwitchCurrencyTab())
         {
             GlobalLog.Error("Failed to switch to Currency tab.", LogName);
             return false;
         }
+
         return VisibleItems.Any(condition);
     }
 
     public async SyncTask<(bool Fount, InventoryItemData Item)> TryGetItemAsync(string name)
     {
-        if (!IsVisible)
-        {
-            return (false, null);
-        }
-        var item = VisibleItems.FirstOrDefault(
-            x => x.BaseName.Contains(name, StringComparison.CurrentCultureIgnoreCase));
-        if (TabType is not InventoryType.CurrencyStash)
-        {
-            return (item != null, item);
-        }
+        if (!IsVisible) return (false, null);
+        var item =
+            VisibleItems.FirstOrDefault(x => x.BaseName.Contains(name, StringComparison.CurrentCultureIgnoreCase));
+        if (TabType is not InventoryType.CurrencyStash) return (item != null, item);
         if (!await SwitchCurrencyTab())
         {
             GlobalLog.Error("Failed to switch to Currency tab.", LogName);
             return (false, null);
         }
-        item = VisibleItems.FirstOrDefault(
-            x => x.BaseName.Contains(name, StringComparison.CurrentCultureIgnoreCase));
+
+        item = VisibleItems.FirstOrDefault(x => x.BaseName.Contains(name, StringComparison.CurrentCultureIgnoreCase));
 
         return (item != null, item);
     }
+
     public async SyncTask<(bool Found, InventoryItemData Item)> TryGetItemAsync(Func<InventoryItemData, bool> condition)
     {
-        if (!IsVisible)
-        {
-            return (false, null);
-        }
+        if (!IsVisible) return (false, null);
         var item = VisibleItems.FirstOrDefault(condition);
-        if (TabType is not InventoryType.CurrencyStash)
-        {
-            return (item != null, item);
-        }
+        if (TabType is not InventoryType.CurrencyStash) return (item != null, item);
         if (!await SwitchCurrencyTab())
         {
             GlobalLog.Error("Failed to switch to Currency tab.", LogName);
             return (false, null);
         }
+
         item = VisibleItems.FirstOrDefault(condition);
         return (item != null, item);
     }
@@ -136,8 +125,8 @@ public class StashTab(RegexCrafter _core)
             return false;
         }
 
-        item = VisibleItems.FirstOrDefault(
-            x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
+        item =
+            VisibleItems.FirstOrDefault(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
 
         return item != null;
     }
@@ -150,6 +139,7 @@ public class StashTab(RegexCrafter _core)
 
         return item != null;
     }
+
     public async SyncTask<bool> SwitchCurrencyTab(CurrencyTabType typeButton)
     {
         if (!IsVisible || TabType != InventoryType.CurrencyStash) return false;
@@ -157,7 +147,7 @@ public class StashTab(RegexCrafter _core)
 
         if (!await button.MoveAndClick()) return false;
 
-        return await Wait.Sleep(100);
+        return await core.Wait.Sleep(100);
     }
 
     public async SyncTask<bool> SwitchCurrencyTab()
@@ -178,7 +168,7 @@ public class StashTab(RegexCrafter _core)
 
         if (!await button.MoveAndClick()) return false;
 
-        return await Wait.Sleep(100);
+        return await core.Wait.Sleep(100);
     }
 
     public CurrencyTabType GetCurrentCurrencyTabType()

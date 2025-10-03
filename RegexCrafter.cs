@@ -1,16 +1,14 @@
-﻿using ExileCore;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using ExileCore;
 using ExileCore.Shared;
 using ImGuiNET;
 using RegexCrafter.CraftsMethods;
 using RegexCrafter.Helpers;
 using RegexCrafter.Helpers.Enums;
 using RegexCrafter.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Input = RegexCrafter.Helpers.Input;
 using Vector2 = System.Numerics.Vector2;
 
 namespace RegexCrafter;
@@ -23,52 +21,75 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
     private readonly string[] _craftPlaces =
         Enum.GetValues(typeof(CraftPlaceType)).Cast<CraftPlaceType>().Select(x => x.GetDescription()).ToArray();
 
-    private readonly string[] _currencyPlace = Enum.GetValues(typeof(CurrencyPlaceType)).Cast<CurrencyPlaceType>().Select(x => x.GetDescription()).ToArray();
+    private readonly string[] _currencyPlace = Enum.GetValues(typeof(CurrencyPlaceType)).Cast<CurrencyPlaceType>()
+        .Select(x => x.GetDescription()).ToArray();
+
     private int _craftPlaceIdx;
-    private int _currentCraftIndex;
     private int _currencyPlaceIdx;
-    public Stash Stash { get; set; }
-    public Scripts Scripts { get; set; }
-    public PlayerInventory PlayerInventory { get; set; }
-    public MousePositionCrafting MousePositionCrafting { get; private set; }
+    private int _currentCraftIndex;
     private SyncTask<bool> _currentOperation;
     public CancellationTokenSource Cts;
-    public ICurrencyPlace CurrencyPlace => Settings.CurrencyPlace switch
+    public Stash Stash { get; set; }
+    public Scripts Scripts { get; set; }
+    public Wait Wait { get; set; }
+    public IInput Input { get; set; }
+    public PlayerInventory PlayerInventory { get; set; }
+    public MousePositionCrafting MousePositionCrafting { get; private set; }
+
+    public ICurrencyPlace CurrencyPlace
     {
-        CurrencyPlaceType.Inventory => PlayerInventory,
-        CurrencyPlaceType.Stash => Stash,
-        _ => throw new ArgumentException("Invalid currency place in settings")
-    };
-    public ICraftingPlace CraftingPlace => Settings.CraftPlace switch
+        get => Settings.CurrencyPlace switch
+        {
+            CurrencyPlaceType.Inventory => PlayerInventory,
+            CurrencyPlaceType.Stash => Stash,
+            _ => throw new ArgumentException("Invalid currency place in settings")
+        };
+    }
+
+    public ICraftingPlace CraftingPlace
     {
-        CraftPlaceType.Inventory => PlayerInventory,
-        CraftPlaceType.Stash => Stash,
-        CraftPlaceType.MousePosition => MousePositionCrafting,
-        _ => throw new ArgumentException("Invalid currency place in settings")
-    };
+        get => Settings.CraftPlace switch
+        {
+            CraftPlaceType.Inventory => PlayerInventory,
+            CraftPlaceType.Stash => Stash,
+            CraftPlaceType.MousePosition => MousePositionCrafting,
+            _ => throw new ArgumentException("Invalid currency place in settings")
+        };
+    }
 
     public override bool Initialise()
     {
         Name = "RegexCrafter";
 
         GlobalLog.Init(this);
+        Wait = new Wait(GameController);
         Stash = new Stash(this);
         PlayerInventory = new PlayerInventory(this);
         MousePositionCrafting = new MousePositionCrafting(this);
         Scripts = new Scripts(this);
-        ElementHelper.Init(GameController.Game.IngameState.IngameUi.Cursor);
-        Wait.Init(this);
-        _ = Input.Init(this);
+        Input = new InputWithHumanizer(this);
+        ElementHelper.Init(GameController.Game.IngameState.IngameUi.Cursor, Input, Wait);
         _craftPlaceIdx = (int)Settings.CraftPlace;
         _currencyPlaceIdx = (int)Settings.CurrencyPlace;
-        _craftList.AddRange([new Map(this), new DefaultCraft(this), new CustomCraft(this)]);
-        LogMessage("END override initialize");
+        _craftList.AddRange([new DefaultCraft(this), new Map(this), new CustomCraft(this)]);
+        LogMessage("[RegexCrafter] END override initialize");
         return base.Initialise();
     }
 
     public override void OnClose()
     {
-        foreach (var craft in _craftList) craft.OnClose();
+        foreach (var craft in _craftList)
+        {
+            craft.OnClose();
+        }
+
+        try
+        {
+            Clipboard.Instance?.Dispose();
+        }
+        catch
+        {
+        }
     }
 
     public override void DrawSettings()
@@ -98,10 +119,13 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
                 ImGui.Spacing();
                 var name = prop.Name;
 
-                var idx = tabs.IndexOf(prop.GetValue(Settings.TabSettings).ToString());
+                var idx = tabs.IndexOf(prop.GetValue(Settings.TabSettings)?.ToString());
                 if (ImGui.Combo(name, ref idx, tabs.ToArray(), tabs.Count))
+                {
                     prop.SetValue(Settings.TabSettings, tabs[idx]);
+                }
             }
+
             ImGui.Dummy(new Vector2(0, 10));
             ImGui.Separator();
             ImGui.Dummy(new Vector2(0, 10));
@@ -116,15 +140,10 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
 
         if (_craftList.Count != 0)
         {
-            _ = ImGui.Combo("Craft Method", ref _currentCraftIndex, _craftList.Select(x => x.Name).ToArray(),
-                _craftList.Count);
+            _ = ImGui.Combo("Craft Method", ref _currentCraftIndex, _craftList.Select(x => x.Name).ToArray(), _craftList.Count);
         }
-        //var craftingLogic = (int)Settings.CraftingLogic;
-        //var craftingLogicNames = Enum.GetNames(typeof(CraftingLogicType));
-        //if (ImGui.Combo("Crafting Logic", ref craftingLogic, craftingLogicNames, craftingLogicNames.Length))
-        //{
-        //    Settings.CraftingLogic = (CraftingLogicType)craftingLogic;
-        //}
+
+
         ImGui.Dummy(new Vector2(0, 10));
         ImGui.Separator();
         ImGui.Dummy(new Vector2(0, 10));
@@ -133,15 +152,19 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
 
     public override void Render()
     {
-        _craftList[_currentCraftIndex].Render();
+        if (_craftList.Count != 0)
+        {
+            _craftList[_currentCraftIndex].Render();
+        }
+
         if (_currentOperation != null)
         {
             GlobalLog.Debug("Craft is running...", LogName);
             _ = TaskUtils.RunOrRestart(ref _currentOperation, () => null);
         }
+
         if (Cts is { Token.IsCancellationRequested: false })
         {
-
             if (!Stash.IsVisible && !PlayerInventory.IsVisible)
             {
                 CancelCraft();
@@ -151,7 +174,6 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
             {
                 CancelCraft();
             }
-
         }
 
         if (ExileCore.Input.IsKeyDown(Settings.StartCraftHotKey.Value) && _currentOperation == null)
@@ -159,7 +181,7 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
             Cts = new CancellationTokenSource();
             try
             {
-                _currentOperation = _craftList[_currentCraftIndex].StartCrafting();
+                _currentOperation = _craftList[_currentCraftIndex].Start(Cts.Token);
             }
             catch (Exception e)
             {
@@ -168,6 +190,7 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
             finally
             {
                 Input.CleanKeys();
+                Clipboard.Instance?.Dispose();
             }
         }
     }
@@ -177,6 +200,18 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
         GlobalLog.Debug("Craft is canceled.", LogName);
         Cts?.Cancel();
         Input.CleanKeys();
+        try
+        {
+            Clipboard.Instance?.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception e)
+        {
+            GlobalLog.Error(e.Message, LogName);
+        }
+
         Cts = null;
         _currentOperation = null;
     }

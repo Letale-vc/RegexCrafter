@@ -1,132 +1,128 @@
-using ExileCore.Shared;
-using ExileCore.Shared.Enums;
+using System;
+using System.Linq;
+using System.Numerics;
 using ImGuiNET;
 using RegexCrafter.Helpers;
 using RegexCrafter.Helpers.Enums;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 
 namespace RegexCrafter.CraftsMethods;
 
 public class DefaultCraftState : CraftState
 {
-    public CurrencyMethodCraftType CurrencyMethodCraftType = CurrencyMethodCraftType.Chaos;
+    public CurrencyMethodCraftType CurrencyMethodCraftType { get; set; } = CurrencyMethodCraftType.Chaos;
 }
 
 public class DefaultCraft(RegexCrafter core) : CraftBase<DefaultCraftState>(core)
 {
-    private const string LogName = "Default Craft";
+    private const string BaseUseCondition = "\"!corrupted|currency\"";
 
     private readonly CurrencyMethodCraftType[] _typeMethodCraft =
     [
-        CurrencyMethodCraftType.Chaos, CurrencyMethodCraftType.ScouringAndAlchemy,
+        CurrencyMethodCraftType.Chaos,
+        CurrencyMethodCraftType.ScouringAndAlchemy,
         CurrencyMethodCraftType.AlterationSpam
     ];
 
-    public override DefaultCraftState CraftState { get; set; } = new();
-
+    protected override DefaultCraftState CurrentState { get; set; } = new();
     public override string Name { get; } = "Default craft";
 
     public override void DrawSettings()
     {
         base.DrawSettings();
-        var selectedMethod = (int)CraftState.CurrencyMethodCraftType;
+        var selectedMethod = (int)CurrentState.CurrencyMethodCraftType;
         if (ImGui.Combo("Type Method craft", ref selectedMethod,
                 _typeMethodCraft.Select(x => x.GetDescription()).ToArray(), _typeMethodCraft.Length))
-            CraftState.CurrencyMethodCraftType = (CurrencyMethodCraftType)selectedMethod;
+        {
+            CurrentState.CurrencyMethodCraftType = (CurrencyMethodCraftType)selectedMethod;
+            ApplyMethodPreset();
+        }
+
         ImGui.Dummy(new Vector2(0, 10));
         ImGui.Separator();
         ImGui.Dummy(new Vector2(0, 10));
-        if (CraftState.RegexPatterns.Count == 0) CraftState.RegexPatterns.Add(string.Empty);
-        ImGui.Dummy(new Vector2(0, 20));
-        for (var i = 0; i < CraftState.RegexPatterns.Count; i++)
+        if (CurrentState.Recipe.MainConditions.Count == 0)
         {
-            var patternTemp = CraftState.RegexPatterns[i];
-            if (ImGui.InputText($"Your regex pattern {i}", ref patternTemp, 1024))
-                CraftState.RegexPatterns[i] = patternTemp;
+            CurrentState.Recipe.AddMainCondition(string.Empty);
+        }
+
+        ImGui.Dummy(new Vector2(0, 20));
+
+        var indexToRemove = -1;
+        for (var i = 0; i < CurrentState.Recipe.MainConditions.Count; i++)
+        {
+            var patternTemp = CurrentState.Recipe.MainConditions[i];
+            ImGui.InputText($"Your regex pattern {i}", ref patternTemp, 1024);
+            CurrentState.Recipe.MainConditions[i] = patternTemp;
             ImGui.SameLine();
-            if (!ImGui.Button($"Remove##{i}")) continue;
-            GlobalLog.Debug($"Remove pattern:{CraftState.RegexPatterns[i]}.", LogName);
-            CraftState.RegexPatterns.RemoveAt(i);
+            if (ImGui.Button($"Remove##{i}"))
+            {
+                indexToRemove = i;
+            }
             //tempPatternList.Add(i);
         }
 
-        if (ImGui.Button("Add Regex Pattern")) CraftState.RegexPatterns.Add(string.Empty);
+        if (indexToRemove >= 0)
+        {
+            CurrentState.Recipe.MainConditions.RemoveAt(indexToRemove);
+        }
+
+        if (ImGui.Button("Add Regex Pattern"))
+        {
+            CurrentState.Recipe.AddMainCondition(string.Empty);
+        }
     }
 
-    protected override async SyncTask<bool> Start()
+    private void ApplyMethodPreset()
     {
-        switch (CraftState.CurrencyMethodCraftType)
+        switch (CurrentState.CurrencyMethodCraftType)
         {
             case CurrencyMethodCraftType.Chaos:
-                return await ChaosSpam();
+                LoadChaosSpam();
+                break;
             case CurrencyMethodCraftType.ScouringAndAlchemy:
-                return await ScouringAndAlchemy();
+                LoadScouringAndAlchemy();
+                break;
             case CurrencyMethodCraftType.AlterationSpam:
-                return await AlterationSpam();
+                LoadAlterationSpam();
+                break;
             default:
-                GlobalLog.Error("Cannot find type method craft.", LogName);
-                return false;
+                throw new ArgumentOutOfRangeException();
         }
     }
 
-    private async SyncTask<bool> ScouringAndAlchemy()
+    protected override void BeforeStart()
     {
-
-        var items = await GetValidItem();
-
-        if (items.Count == 0) return false;
-
-        while (items.Count > 0)
+        if (!CurrentState.Recipe.BaseUseCondition.Contains(BaseUseCondition))
         {
-            CancellationToken.ThrowIfCancellationRequested();
-            //apply scouring
-            if (!await CurrencyUseHelper.ScouringItems(RegexCondition)) return false;
-
-            // apply orb of alchemy
-            if (!await CurrencyUseHelper.AlchemyItems(RegexCondition)) return false;
-
-            items = await GetValidItem();
-            if (items == null) return false;
+            CurrentState.Recipe.BaseUseCondition = BaseUseCondition;
         }
 
-        return true;
+        ApplyMethodPreset();
     }
 
-    private async SyncTask<List<InventoryItemData>> GetValidItem()
+    private void LoadScouringAndAlchemy()
     {
-        return (await CraftingPlace.TryGetUsedItemsAsync(x =>
-            DoneCraftItem.All(s => s.Entity.Address != x.Entity.Address) && !x.IsCorrupted &&
-            x.Rarity != ItemRarity.Unique)).Items;
+        CurrentState.Recipe.RemoveAllSteps();
+        var scouringStep = CraftStepFactory.GetScouringStep();
+        var alchemyStep = CraftStepFactory.GetAlchemyStep();
+        CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep]);
     }
 
-    private async SyncTask<bool> AlterationSpam()
+    private void LoadAlterationSpam()
     {
-
-        if (!await CurrencyUseHelper.ScouringItems(x => x.Rarity == ItemRarity.Rare && !x.IsCorrupted,
-                x => x.Rarity == ItemRarity.Normal)) return false;
-        // use transmutation
-        if (!await Scripts.UseCurrencyOnMultipleItems(CurrencyNames.OrbOfTransmutation,
-                x => x.Rarity == ItemRarity.Normal,
-                x => x.Rarity == ItemRarity.Magic))
-            return false;
-        // use alteration
-        if (!await Scripts.UseCurrencyOnMultipleItems(CurrencyNames.OrbOfAlteration,
-                x => x.Rarity == ItemRarity.Magic,
-                RegexCondition))
-            return false;
-
-        return true;
+        CurrentState.Recipe.RemoveAllSteps();
+        var onlyRareScouringStep = CraftStepFactory.GetOnlyRareScouringStep();
+        var transmutationStep = CraftStepFactory.GetTransmutationStep();
+        var alterationStep = CraftStepFactory.GetAlterationStep();
+        CurrentState.Recipe.AddRangeStep([onlyRareScouringStep, transmutationStep, alterationStep]);
     }
 
-    private async SyncTask<bool> ChaosSpam()
+    private void LoadChaosSpam()
     {
-
-        if (!await CurrencyUseHelper.ScouringItems(x => x.Rarity == ItemRarity.Magic, RegexCondition)) return false;
-        // apply orb of alchemy
-        if (!await CurrencyUseHelper.AlchemyItems(x => x.Rarity == ItemRarity.Normal, RegexCondition)) return false;
-        // chaos spam
-        return await CurrencyUseHelper.ChaosSpamItems(RegexCondition);
+        CurrentState.Recipe.RemoveAllSteps();
+        var scouringStep = CraftStepFactory.GetOnlyMagicScouringStep();
+        var alchemyStep = CraftStepFactory.GetAlchemyStep();
+        var chaosStep = CraftStepFactory.GetChaosSpamStep();
+        CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep, chaosStep]);
     }
 }

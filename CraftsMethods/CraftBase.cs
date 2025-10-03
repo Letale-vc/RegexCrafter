@@ -1,69 +1,97 @@
-using ExileCore;
-using ExileCore.Shared;
-using ImGuiNET;
-using Newtonsoft.Json;
-using RegexCrafter.Helpers;
-using RegexCrafter.Interface;
-using SharpDX;
-using SharpDX.Text;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using ExileCore.Shared;
+using ImGuiNET;
+using Newtonsoft.Json;
+using RegexCrafter.Helpers;
+using RegexCrafter.Helpers.Enums;
+using RegexCrafter.Interface;
+using SharpDX;
+using Encoding = System.Text.Encoding;
 using Vector2 = System.Numerics.Vector2;
 
 namespace RegexCrafter.CraftsMethods;
 
-public class CraftState : ICloneable
+public class CraftState
 {
-    public readonly List<string> RegexPatterns = [];
-    public string Name = string.Empty;
-    public object Clone()
-    {
-        return MemberwiseClone();
-    }
+    public Recipe Recipe { get; set; } = new();
 }
-
-
 
 public abstract class CraftBase<TState> : ICrafting where TState : CraftState, new()
 {
     private const string LogName = "Craft";
-
-    protected readonly List<InventoryItemData> BadItems = [];
-    protected readonly List<InventoryItemData> DoneCraftItem = [];
-    protected readonly List<TState> StateList;
+    private readonly RegexCrafter _core;
+    private readonly List<TState> _stateList;
     private string _importExportText = string.Empty;
     private int _stateIndex;
-    private readonly RegexCrafter Core;
-    protected Scripts Scripts => Core.Scripts;
-    protected readonly CurrencyUseHelper CurrencyUseHelper;
-    protected Stash Stash => Core.Stash;
-    protected PlayerInventory PlayerInventory => Core.PlayerInventory;
-    protected Settings Settings => Core.Settings;
-    protected ICurrencyPlace CurrencyPlace => Core.CurrencyPlace;
-    protected ICraftingPlace CraftingPlace => Core.CraftingPlace;
 
     protected CraftBase(RegexCrafter core)
     {
-        Core = core;
-        StateList = GetFileState();
-        CurrencyUseHelper = new CurrencyUseHelper(Scripts);
+        _core = core;
+        _stateList = GetFileState();
     }
 
-    public string PathFileState => Path.Combine(Core.ConfigDirectory, Name);
-    public CancellationToken CancellationToken => Core.Cts.Token;
-    public abstract TState CraftState { get; set; }
+    private Dictionary<long, InventoryItemData> DoneCraftItem { get; } = [];
+    private Dictionary<long, InventoryItemData> NoValidItems { get; } = [];
+    protected abstract TState CurrentState { get; set; }
+
+    private Scripts Scripts
+    {
+        get => _core.Scripts;
+    }
+
+    private Stash Stash
+    {
+        get => _core.Stash;
+    }
+
+    private PlayerInventory PlayerInventory
+    {
+        get => _core.PlayerInventory;
+    }
+
+    protected Settings Settings
+    {
+        get => _core.Settings;
+    }
+
+    protected ICurrencyPlace CurrencyPlace
+    {
+        get => _core.CurrencyPlace;
+    }
+
+    private ICraftingPlace CraftingPlace
+    {
+        get => _core.CraftingPlace;
+    }
+
+    private string PathFileState
+    {
+        get => Path.Combine(_core.ConfigDirectory, Name);
+    }
+
+    public CancellationToken CancellationToken
+    {
+        get => _core.Cts.Token;
+    }
+
+
     public abstract string Name { get; }
 
     public void Clean()
     {
-        if (BadItems.Count != 0)
-            BadItems.Clear();
+        if (NoValidItems.Count != 0)
+        {
+            NoValidItems.Clear();
+        }
 
         if (DoneCraftItem.Count != 0)
+        {
             DoneCraftItem.Clear();
+        }
     }
 
     public void Render()
@@ -74,190 +102,295 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
             return;
         }
 
-        foreach (var item in DoneCraftItem) Core.Graphics.DrawFrame(item.GetClientRectCache, Color.Green, 2);
-        foreach (var item in BadItems) Core.Graphics.DrawFrame(item.GetClientRectCache, Color.Red, 2);
+        foreach (var item in DoneCraftItem.Values)
+        {
+            _core.Graphics.DrawFrame(item.GetClientRectCache, Color.Green, 2);
+        }
+
+        foreach (var item in NoValidItems.Values)
+        {
+            _core.Graphics.DrawFrame(item.GetClientRectCache, Color.Red, 2);
+        }
     }
 
     public virtual void DrawSettings()
     {
         ImGui.InputText("Import/export##ImportExportText", ref _importExportText, 10240);
-        if (ImGui.Button("Import##ImportState")) Import();
+        if (ImGui.Button("Import##Import"))
+        {
+            Import();
+        }
+
         ImGui.SameLine();
-        if (ImGui.Button("Export##ExportState")) Export();
+        if (ImGui.Button("Export##Export"))
+        {
+            Export();
+        }
+
         ImGui.Dummy(new Vector2(0, 20));
-        var stateNameList = StateList.Select(x => x.Name).ToArray();
-        _ = ImGui.Combo("States", ref _stateIndex, stateNameList, StateList.Count);
+        var stateNameList = _stateList.Select(x => x.Recipe.Name).ToArray();
+        ImGui.Combo("Saved crafts", ref _stateIndex, stateNameList, _stateList.Count);
         ImGui.SameLine();
-        if (ImGui.Button("Load State")) CraftState = (TState)StateList[_stateIndex].Clone();
+        if (ImGui.Button("Load"))
+        {
+            CurrentState = _stateList[_stateIndex];
+        }
+
         ImGui.SameLine();
-        if (ImGui.Button("Remove State")) StateList.RemoveAt(_stateIndex);
-        _ = ImGui.InputText("State Name", ref CraftState.Name, 100);
-        if (ImGui.Button("Save Current State")) UpdateLocalState(CraftState);
+        if (ImGui.Button("Remove"))
+        {
+            _stateList.RemoveAt(_stateIndex);
+        }
+
+        var nameTemp = CurrentState.Recipe.Name;
+        if (ImGui.InputText("Recipe Name", ref nameTemp, 100))
+        {
+            CurrentState.Recipe.Name = nameTemp;
+        }
+
+        if (ImGui.Button("Save"))
+        {
+            UpdateLocalState(CurrentState);
+        }
+
         ImGui.SameLine();
-        if (ImGui.Button("Reset State")) CraftState = new TState();
+        if (ImGui.Button("Reset"))
+        {
+            CurrentState = new TState();
+        }
+
         ImGui.Dummy(new Vector2(0, 10));
         ImGui.Separator();
         ImGui.Dummy(new Vector2(0, 10));
-
-        // ImGui.Separator();
-        // if (CraftState.RegexPatterns.Count == 0) CraftState.RegexPatterns.Add(string.Empty);
-        //
-        // ImGui.Dummy(new Vector2(0,20));
-        // for (var i = 0; i < CraftState.RegexPatterns.Count; i++)
-        // {
-        //     var patternTemp = CraftState.RegexPatterns[i];
-        //     if (ImGui.InputText($"Your regex pattern {i}", ref patternTemp, 1024))
-        //         CraftState.RegexPatterns[i] = patternTemp;
-        //     ImGui.SameLine();
-        //     if (!ImGui.Button($"Remove##{i}")) continue;
-        //     GlobalLog.Debug($"Remove pattern:{CraftState.RegexPatterns[i]}.", LogName);
-        //     CraftState.RegexPatterns.RemoveAt(i);
-        //     //tempPatternList.Add(i);
-        // }
-        // if (ImGui.Button("Add Regex Pattern")) CraftState.RegexPatterns.Add(string.Empty);
     }
 
-    public bool PreCraftCheck()
-    {
-        if (CraftState.RegexPatterns.Count == 0)
-        {
-            GlobalLog.Error("Regex pattern is empty.", LogName);
-            return false;
-        }
-
-        if (CraftState.RegexPatterns.Any(string.IsNullOrEmpty))
-        {
-            GlobalLog.Error("Regex pattern is empty.", LogName);
-            return false;
-        }
-
-        return true;
-    }
-
-    protected abstract SyncTask<bool> Start();
-    public SyncTask<bool> StartCrafting()
-    {
-        Clean();
-        if (!PreCraftCheck())
-            return new SyncTask<bool>(false);
-        GlobalLog.Debug($"Start crafting: {Name}.", LogName);
-        return Start();
-    }
 
     public void OnClose()
     {
         UpdateFileState();
     }
 
-    public void Import()
+    public async SyncTask<bool> Start(CancellationToken ct = default)
     {
-        var jsonStr = Encoding.UTF8.GetString(Convert.FromBase64String(_importExportText));
-        CraftState = JsonConvert.DeserializeObject<TState>(jsonStr);
+        BeforeStart();
+        if (!PreCraftCheck())
+        {
+            return false;
+        }
+
+
+        List<string> onlyUseOneTimeCurrencies = [];
+        while (true)
+        {
+            foreach (var step in CurrentState.Recipe.CraftSteps)
+            {
+                if (step.IsOneTimeUse && !onlyUseOneTimeCurrencies.Contains(step.Currency))
+                {
+                    onlyUseOneTimeCurrencies.Add(step.Currency);
+                }
+                else if (step.IsOneTimeUse && onlyUseOneTimeCurrencies.Contains(step.Currency))
+                {
+                    continue;
+                }
+
+                ct.ThrowIfCancellationRequested();
+
+                var (success, items) = await CraftingPlace.TryGetItemsAsync();
+                if (!success && items.Count == 0)
+                {
+                    return false;
+                }
+
+                var validCraftItems = items.Where(x =>
+                    !DoneCraftItem.ContainsKey(x.Entity.Address) &&
+                    !NoValidItems.ContainsKey(x.Entity.Address)).ToList();
+
+                if (validCraftItems.Count == 0)
+                {
+                    return true;
+                }
+
+                if (!await Scripts.UseCurrencyOnMultipleItems(validCraftItems, step.Currency,
+                        item =>
+                        {
+                            if (DoneCraftItem.ContainsKey(item.Entity.Address))
+                            {
+                                return CraftingAction.Skip;
+                            }
+
+                            if (!CurrentState.Recipe.IsBaseUseCondition(item.ClipboardText))
+                            {
+                                NoValidItems.TryAdd(item.Entity.Address, item);
+
+                                return CraftingAction.Skip;
+                            }
+
+                            if (NoValidItems.ContainsKey(item.Entity.Address))
+                            {
+                                return CraftingAction.Skip;
+                            }
+
+                            if (!step.IsUseCondition(item.ClipboardText))
+                            {
+                                return CraftingAction.Skip;
+                            }
+
+                            if (CurrentState.Recipe.IsMainCondition(item.ClipboardText))
+                            {
+                                DoneCraftItem.TryAdd(item.Entity.Address, item);
+                                return CraftingAction.Complete;
+                            }
+
+                            if (step.IsStopUseCondition(item.ClipboardText))
+                            {
+                                return CraftingAction.Complete;
+                            }
+
+                            return CraftingAction.Continue;
+                        }
+                        , ct
+                    ))
+                {
+                    return false;
+                }
+
+                if (DoneCraftItem.Count + NoValidItems.Count == items.Count)
+                {
+                    break;
+                }
+            }
+
+            await TaskUtils.NextFrame();
+        }
     }
 
-    public void Export()
+    private bool PreCraftCheck()
     {
-        var jsonStr = JsonConvert.SerializeObject(CraftState);
+        if (CurrentState.Recipe.MainConditions.Count == 0)
+        {
+            GlobalLog.Error("Regex pattern is empty.", LogName);
+            return false;
+        }
+
+        if (CurrentState.Recipe.CraftSteps.Count == 0)
+        {
+            GlobalLog.Error("Craft steps are empty.", LogName);
+            return false;
+        }
+
+        return true;
+    }
+
+    protected virtual void BeforeStart()
+    {
+        GlobalLog.Debug("It`s base BeforeStart method. No action", LogName);
+    }
+
+    private void Import()
+    {
+        var jsonStr = Encoding.UTF8.GetString(Convert.FromBase64String(_importExportText));
+        CurrentState = JsonConvert.DeserializeObject<TState>(jsonStr);
+    }
+
+    private void Export()
+    {
+        var jsonStr = JsonConvert.SerializeObject(CurrentState);
         _importExportText = Convert.ToBase64String(Encoding.UTF8.GetBytes(jsonStr));
         Clipboard.SetClipboardText(_importExportText);
         GlobalLog.Info($"Copy to clipboard: {_importExportText}", LogName);
     }
 
-    public void UpdateLocalState(TState state)
+    private void UpdateLocalState(TState state)
     {
-        if (StateList.Any(x => x.Name == state.Name))
+        if (_stateList.Any(x => x.Recipe.Name == state.Recipe.Name))
         {
-            var idx = StateList.FindIndex(x => x.Name == state.Name);
-            StateList[idx] = state;
+            var idx = _stateList.FindIndex(x => x.Recipe.Name == state.Recipe.Name);
+            _stateList[idx] = state;
         }
         else
         {
-            StateList.Add(state);
+            _stateList.Add(state);
         }
 
         UpdateFileState();
     }
 
-    public void UpdateFileState()
+    private void UpdateFileState()
     {
-        File.WriteAllText(PathFileState, JsonConvert.SerializeObject(StateList, Formatting.Indented));
+        File.WriteAllText(PathFileState, JsonConvert.SerializeObject(_stateList, Formatting.Indented));
         GlobalLog.Debug($"Update file: {PathFileState}.", LogName);
     }
 
     private void CreateFile()
     {
-        if (Path.Exists(PathFileState)) return;
+        if (Path.Exists(PathFileState))
+        {
+            return;
+        }
 
         File.WriteAllText(PathFileState, JsonConvert.SerializeObject(new List<TState>(), Formatting.Indented));
         GlobalLog.Debug($"Created file: {PathFileState}.", LogName);
     }
 
+    private bool TryLoadStateFile(out List<TState> list)
+    {
+        list = [];
+        try
+        {
+            var content = File.ReadAllText(PathFileState);
+            var deserialized = JsonConvert.DeserializeObject<List<TState>>(content);
+            if (deserialized == null)
+            {
+                throw new Exception("Deserialized list is null");
+            }
+            list = deserialized;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            HandleCorruptedStateFile(ex);
+            return false;
+        }
+    }
+
+    private void HandleCorruptedStateFile(Exception ex)
+    {
+        GlobalLog.Error($"Failed to deserialize state file '{PathFileState}': {ex.Message}", LogName);
+        TryBackupCorruptedFile();
+        CreateFile();
+    }
+
+    private void TryBackupCorruptedFile()
+    {
+        try
+        {
+            if (!File.Exists(PathFileState))
+            {
+                return;
+            }
+            var backupPath = PathFileState + ".old";
+            if (File.Exists(backupPath))
+            {
+                var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                backupPath = PathFileState + $".{ts}.old";
+            }
+            File.Move(PathFileState, backupPath);
+            GlobalLog.Debug($"Corrupted state file renamed to: {backupPath}", LogName);
+        }
+        catch (Exception renameEx)
+        {
+            GlobalLog.Error($"Failed to rename corrupted state file: {renameEx.Message}", LogName);
+        }
+    }
+
     private List<TState> GetFileState()
     {
         if (Path.Exists(PathFileState))
-            return JsonConvert.DeserializeObject<List<TState>>(File.ReadAllText(PathFileState));
-        CreateFile();
-        return [];
-    }
-
-    public bool RegexCondition(InventoryItemData item)
-    {
-        if (string.IsNullOrEmpty(item.ClipboardText)) return false;
-        foreach (var pattern in CraftState.RegexPatterns)
         {
-            var (exclude, include, maxIncludeOnlyOne) = RegexFinder.ParsePattern(pattern);
-
-            if (exclude.Count == 0 && include.Count == 0 && maxIncludeOnlyOne.Count == 0)
-            {
-                GlobalLog.Error($"Regex pattern is empty: {pattern}", LogName);
-                continue;
-            }
-
-            if (exclude.Count > 0)
-            {
-                var excludeResult = RegexFinder.ContainsAnyPattern(item.ClipboardText, exclude, out var foundPatterns);
-                GlobalLog.Info(
-                    $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
-                    LogName);
-                if (excludeResult) continue;
-            }
-
-            if (maxIncludeOnlyOne.Count > 0)
-            {
-
-                RegexFinder.ContainsAnyPattern(item.ClipboardText, maxIncludeOnlyOne, out var foundPatterns2);
-                if (foundPatterns2.Count > 1)
-                {
-                    GlobalLog.Info(
-                        $"Include Only one: need find {foundPatterns2.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns2)}]",
-                        LogName);
-                    continue;
-                }
-            }
-
-
-            if (include.Count > 0)
-            {
-                var includeResult = RegexFinder.ContainsAllPatterns(item.ClipboardText, include, out var foundPatterns3);
-
-                if (!includeResult)
-                {
-                    GlobalLog.Info(
-                        $"Include: need find {foundPatterns3.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns3)}]",
-                        LogName);
-                    continue;
-                }
-            }
-
-            DoneCraftItem.Add(item);
-            return true;
+            return TryLoadStateFile(out var list) ? list : [];
         }
 
-        return false;
-    }
-
-    public override string ToString()
-    {
-        return $"{Name}";
+        CreateFile();
+        return [];
     }
 }
