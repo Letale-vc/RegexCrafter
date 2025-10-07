@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Forms;
 using ExileCore.Shared;
-using RegexCrafter.Helpers.Enums;
+using RegexCrafter.Enums;
 using RegexCrafter.Interface;
 using Cursor = ExileCore.PoEMemory.MemoryObjects.Cursor;
 
@@ -18,8 +18,8 @@ public class Scripts(RegexCrafter core)
     private ICurrencyPlace CurrencyPlace => core.CurrencyPlace;
     private ICraftingPlace CraftingPlace => core.CraftingPlace;
 
-    public async SyncTask<bool> UseCurrencyToSingleItem(InventoryItemData item, string currency,
-        Func<InventoryItemData, CraftingAction> condition, CancellationToken ct = default)
+    public async SyncTask<bool> UseCurrencyToSingleItem(Models.InventoryItemData item, string currency,
+        Func<Models.InventoryItemData, CraftingAction> condition, CancellationToken ct = default)
     {
         try
         {
@@ -42,7 +42,7 @@ public class Scripts(RegexCrafter core)
     }
 
     public async SyncTask<bool> UseCurrencyOnMultipleItems(string currencyUseName,
-        Func<InventoryItemData, CraftingAction> condition,
+        Func<Models.InventoryItemData, CraftingAction> condition,
         CancellationToken ct = default)
     {
         var (success, items) = await CraftingPlace.TryGetItemsAsync();
@@ -56,8 +56,8 @@ public class Scripts(RegexCrafter core)
         return await UseCurrencyOnMultipleItems(items, currencyUseName, condition, ct);
     }
 
-    public async SyncTask<bool> UseCurrencyOnMultipleItems(IEnumerable<InventoryItemData> items, string currencyUseName,
-        Func<InventoryItemData, CraftingAction> condition,
+    public async SyncTask<bool> UseCurrencyOnMultipleItems(IEnumerable<Models.InventoryItemData> items, string currencyUseName,
+        Func<Models.InventoryItemData, CraftingAction> condition,
         CancellationToken ct = default)
     {
         GlobalLog.Debug($"Start using {currencyUseName} to items.", LogName);
@@ -99,12 +99,12 @@ public class Scripts(RegexCrafter core)
         }
     }
 
-    private async SyncTask<bool> ClickUntilCondition(InventoryItemData item,
-        Func<InventoryItemData, CraftingAction> condition,
+    private async SyncTask<bool> ClickUntilCondition(Models.InventoryItemData item,
+        Func<Models.InventoryItemData, CraftingAction> condition,
         int maxCountClick = 3000, CancellationToken ct = default)
     {
         var countClick = 0;
-        InventoryItemData oldHoverItem = null;
+        Models.InventoryItemData oldHoverItem = null;
         GlobalLog.Debug($"Clicking on item {item} until condition is met.", LogName);
         while (CraftingPlace.CanCraft())
         {
@@ -182,14 +182,14 @@ public class Scripts(RegexCrafter core)
         return false;
     }
 
-    public async SyncTask<(bool isSuccess, InventoryItemData hoveredItem)> WaitForHoveredItem(
-        Func<InventoryItemData, bool> predicate,
+    public async SyncTask<(bool isSuccess, Models.InventoryItemData hoveredItem)> WaitForHoveredItem(
+        Func<Models.InventoryItemData, bool> predicate,
         string operationName, CancellationToken ct = default
     )
     {
         try
         {
-            InventoryItemData hoveredItem = null;
+            Models.InventoryItemData hoveredItem = null;
 
             var isSuccess = await Wait.For(() =>
             {
@@ -232,7 +232,7 @@ public class Scripts(RegexCrafter core)
         }
     }
 
-    public bool TryGetHoveredItem(out InventoryItemData item)
+    public bool TryGetHoveredItem(out Models.InventoryItemData item)
     {
         item = null;
         var uiHover = core.GameController.Game.IngameState.UIHoverTooltip;
@@ -256,7 +256,7 @@ public class Scripts(RegexCrafter core)
             return false;
         }
 
-        item = new InventoryItemData(uiHover);
+        item = new Models.InventoryItemData(uiHover);
         return true;
     }
 }

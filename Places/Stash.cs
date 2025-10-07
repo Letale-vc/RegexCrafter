@@ -6,9 +6,10 @@ using System.Windows.Forms;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
+using RegexCrafter.Helpers;
 using RegexCrafter.Interface;
 
-namespace RegexCrafter.Helpers;
+namespace RegexCrafter.Places;
 
 public class Stash : ICurrencyPlace, ICraftingPlace
 {
@@ -240,15 +241,15 @@ public class Stash : ICurrencyPlace, ICraftingPlace
 
     public bool SupportChainCraft { get; } = true;
 
-    public async SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync(
-        Func<InventoryItemData, bool> conditionUse)
+    public async SyncTask<(bool Success, List<Models.InventoryItemData> Items)> TryGetItemsAsync(
+        Func<Models.InventoryItemData, bool> conditionUse)
     {
         if (!await SwitchToCraftTabAsync()) return (false, []);
         if (CurrentTab.VisibleItems is null) return (false, []);
         return (true, CurrentTab.VisibleItems.Where(conditionUse).ToList());
     }
 
-    public SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync()
+    public SyncTask<(bool Success, List<Models.InventoryItemData> Items)> TryGetItemsAsync()
     {
         return TryGetItemsAsync(_ => true);
     }

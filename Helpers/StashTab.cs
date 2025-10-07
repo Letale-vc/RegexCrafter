@@ -22,8 +22,8 @@ public class StashTab(RegexCrafter core)
     public string TabName => StashTabContainerInventory?.TabName ?? string.Empty;
     public Inventory Inventory => StashTabContainerInventory?.Inventory;
 
-    public List<InventoryItemData> VisibleItems => Inventory?.VisibleInventoryItems
-        .Where(x => x != null && x.Type == ElementType.InventoryItem).Select(x => new InventoryItemData(x)).ToList();
+    public List<Models.InventoryItemData> VisibleItems => Inventory?.VisibleInventoryItems
+        .Where(x => x != null && x.Type == ElementType.InventoryItem).Select(x => new Models.InventoryItemData(x)).ToList();
 
     public bool IsPublic => core.GameController.Game.IngameState.ServerData.PlayerStashTabs
         .First(x => x.Name == TabName)
@@ -63,7 +63,7 @@ public class StashTab(RegexCrafter core)
         return VisibleItems.Any(x => x.BaseName.Contains(baseName, StringComparison.CurrentCultureIgnoreCase));
     }
 
-    public async SyncTask<bool> ContainsItemAsync(Func<InventoryItemData, bool> condition)
+    public async SyncTask<bool> ContainsItemAsync(Func<Models.InventoryItemData, bool> condition)
     {
         if (!IsVisible) return false;
         if (VisibleItems == null || VisibleItems.Count == 0)
@@ -85,7 +85,7 @@ public class StashTab(RegexCrafter core)
         return VisibleItems.Any(condition);
     }
 
-    public async SyncTask<(bool Fount, InventoryItemData Item)> TryGetItemAsync(string name)
+    public async SyncTask<(bool Fount, Models.InventoryItemData Item)> TryGetItemAsync(string name)
     {
         if (!IsVisible) return (false, null);
         var item =
@@ -102,7 +102,7 @@ public class StashTab(RegexCrafter core)
         return (item != null, item);
     }
 
-    public async SyncTask<(bool Found, InventoryItemData Item)> TryGetItemAsync(Func<InventoryItemData, bool> condition)
+    public async SyncTask<(bool Found, Models.InventoryItemData Item)> TryGetItemAsync(Func<Models.InventoryItemData, bool> condition)
     {
         if (!IsVisible) return (false, null);
         var item = VisibleItems.FirstOrDefault(condition);
@@ -117,7 +117,7 @@ public class StashTab(RegexCrafter core)
         return (item != null, item);
     }
 
-    public bool TryGetItem(string baseName, out InventoryItemData item)
+    public bool TryGetItem(string baseName, out Models.InventoryItemData item)
     {
         if (!IsVisible)
         {
@@ -131,7 +131,7 @@ public class StashTab(RegexCrafter core)
         return item != null;
     }
 
-    public bool TryGetItem(Func<InventoryItemData, bool> condition, out InventoryItemData item)
+    public bool TryGetItem(Func<Models.InventoryItemData, bool> condition, out Models.InventoryItemData item)
     {
         item = null;
         if (!IsVisible) return false;

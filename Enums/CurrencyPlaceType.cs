@@ -1,10 +1,9 @@
 ﻿using System.ComponentModel;
 
-namespace RegexCrafter.Helpers.Enums;
+namespace RegexCrafter.Enums;
 
-public enum CraftPlaceType
+public enum CurrencyPlaceType
 {
     [Description("Inventory")] Inventory = 0,
     [Description("Stash")] Stash = 1,
-    [Description("Mouse Position")] MousePosition = 2
 }

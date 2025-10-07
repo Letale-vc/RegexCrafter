@@ -1,7 +1,7 @@
 using System;
 using System.ComponentModel;
 
-namespace RegexCrafter.Helpers.Enums;
+namespace RegexCrafter.Enums;
 
 public static class EnumExtensions
 {

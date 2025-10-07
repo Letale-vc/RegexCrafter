@@ -1,4 +1,4 @@
-namespace RegexCrafter.Helpers.Enums;
+namespace RegexCrafter.Enums;
 
 public enum CurrencyTabType
 {

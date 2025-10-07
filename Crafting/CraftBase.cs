@@ -6,14 +6,16 @@ using System.Threading;
 using ExileCore.Shared;
 using ImGuiNET;
 using Newtonsoft.Json;
+using RegexCrafter.Enums;
 using RegexCrafter.Helpers;
-using RegexCrafter.Helpers.Enums;
 using RegexCrafter.Interface;
+using RegexCrafter.Models;
+using RegexCrafter.Places;
 using SharpDX;
 using Encoding = System.Text.Encoding;
 using Vector2 = System.Numerics.Vector2;
 
-namespace RegexCrafter.CraftsMethods;
+namespace RegexCrafter.Crafting;
 
 public class CraftState
 {
@@ -83,15 +85,8 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
 
     public void Clean()
     {
-        if (NoValidItems.Count != 0)
-        {
-            NoValidItems.Clear();
-        }
-
-        if (DoneCraftItem.Count != 0)
-        {
-            DoneCraftItem.Clear();
-        }
+        NoValidItems.Clear();
+        DoneCraftItem.Clear();
     }
 
     public void Render()
@@ -131,7 +126,7 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
         var stateNameList = _stateList.Select(x => x.Recipe.Name).ToArray();
         ImGui.Combo("Saved crafts", ref _stateIndex, stateNameList, _stateList.Count);
         ImGui.SameLine();
-        if (ImGui.Button("Load"))
+        if (ImGui.Button("Load") && _stateIndex >= 0 && _stateIndex < _stateList.Count)
         {
             CurrentState = _stateList[_stateIndex];
         }
@@ -256,7 +251,7 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
 
                 if (DoneCraftItem.Count + NoValidItems.Count == items.Count)
                 {
-                    break;
+                    return true;
                 }
             }
 
@@ -302,9 +297,9 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
 
     private void UpdateLocalState(TState state)
     {
-        if (_stateList.Any(x => x.Recipe.Name == state.Recipe.Name))
+        var idx = _stateList.FindIndex(x => x.Recipe.Name == state.Recipe.Name);
+        if (idx >= 0)
         {
-            var idx = _stateList.FindIndex(x => x.Recipe.Name == state.Recipe.Name);
             _stateList[idx] = state;
         }
         else
@@ -323,13 +318,15 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
 
     private void CreateFile()
     {
-        if (Path.Exists(PathFileState))
+        try
         {
-            return;
+            File.WriteAllText(PathFileState, JsonConvert.SerializeObject(new List<TState>(), Formatting.Indented));
+            GlobalLog.Debug($"Created file: {PathFileState}.", LogName);
         }
-
-        File.WriteAllText(PathFileState, JsonConvert.SerializeObject(new List<TState>(), Formatting.Indented));
-        GlobalLog.Debug($"Created file: {PathFileState}.", LogName);
+        catch (Exception ex)
+        {
+            GlobalLog.Error($"Failed to create state file '{PathFileState}': {ex.Message}", LogName);
+        }
     }
 
     private bool TryLoadStateFile(out List<TState> list)
@@ -343,6 +340,7 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
             {
                 throw new Exception("Deserialized list is null");
             }
+
             list = deserialized;
             return true;
         }
@@ -368,12 +366,14 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
             {
                 return;
             }
+
             var backupPath = PathFileState + ".old";
             if (File.Exists(backupPath))
             {
                 var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 backupPath = PathFileState + $".{ts}.old";
             }
+
             File.Move(PathFileState, backupPath);
             GlobalLog.Debug($"Corrupted state file renamed to: {backupPath}", LogName);
         }
@@ -385,12 +385,11 @@ public abstract class CraftBase<TState> : ICrafting where TState : CraftState, n
 
     private List<TState> GetFileState()
     {
-        if (Path.Exists(PathFileState))
+        if (!Path.Exists(PathFileState))
         {
-            return TryLoadStateFile(out var list) ? list : [];
+            CreateFile();
         }
 
-        CreateFile();
-        return [];
+        return TryLoadStateFile(out var list) ? list : [];
     }
 }

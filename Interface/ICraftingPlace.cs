@@ -1,5 +1,4 @@
 ﻿using ExileCore.Shared;
-using RegexCrafter.Helpers.Enums;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -9,8 +8,8 @@ namespace RegexCrafter.Interface;
 public interface ICraftingPlace
 {
     bool SupportChainCraft { get; }
-    SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync(Func<InventoryItemData, bool> conditionUse);
-    SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync();
+    SyncTask<(bool Success, List<Models.InventoryItemData> Items)> TryGetItemsAsync(Func<Models.InventoryItemData, bool> conditionUse);
+    SyncTask<(bool Success, List<Models.InventoryItemData> Items)> TryGetItemsAsync();
     SyncTask<bool> PrepareCraftingPlace();
     bool CanCraft();
     //bool CanCraft(Recipe recipe);

@@ -5,10 +5,11 @@ using System.Threading;
 using ExileCore;
 using ExileCore.Shared;
 using ImGuiNET;
-using RegexCrafter.CraftsMethods;
+using RegexCrafter.Crafting;
+using RegexCrafter.Enums;
 using RegexCrafter.Helpers;
-using RegexCrafter.Helpers.Enums;
 using RegexCrafter.Interface;
+using RegexCrafter.Places;
 using Vector2 = System.Numerics.Vector2;
 
 namespace RegexCrafter;
@@ -170,13 +171,13 @@ public class RegexCrafter : BaseSettingsPlugin<Settings>
                 CancelCraft();
             }
 
-            if (ExileCore.Input.IsKeyDown(Settings.StopCraftHotKey.Value))
+            if (ExileCore.Input.IsKeyDown(Settings.StopCraftHotKey.Value.Key))
             {
                 CancelCraft();
             }
         }
 
-        if (ExileCore.Input.IsKeyDown(Settings.StartCraftHotKey.Value) && _currentOperation == null)
+        if (ExileCore.Input.IsKeyDown(Settings.StartCraftHotKey.Value.Key) && _currentOperation == null)
         {
             Cts = new CancellationTokenSource();
             try

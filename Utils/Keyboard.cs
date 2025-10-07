@@ -3,7 +3,7 @@ using System.Windows.Forms;
 
 namespace RegexCrafter.Utils;
 
-internal class Keyboard
+internal static class Keyboard
 {
     private const int KEYEVENTF_EXTENDEDKEY = 0x0001;
     private const int KEYEVENTF_KEYUP = 0x0002;

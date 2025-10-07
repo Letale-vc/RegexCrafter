@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using RegexCrafter.Helpers;
 
-namespace RegexCrafter.Helpers;
+namespace RegexCrafter.Services;
 
 /// <summary>
 ///     Provides methods for pattern matching and text analysis using regular expressions

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace RegexCrafter.Helpers.Enums;
+namespace RegexCrafter.Enums;
 
 public enum CurrencyMethodCraftType
 {

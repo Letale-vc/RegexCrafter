@@ -11,11 +11,11 @@ public class CraftStep
 
     public bool IsUseCondition(string text)
     {
-        return RegexFinder.ContainsPatternInText(text, UseCondition);
+        return Services.RegexFinder.ContainsPatternInText(text, UseCondition);
     }
 
     public bool IsStopUseCondition(string text)
     {
-        return RegexFinder.ContainsPatternInText(text, StopUseCondition);
+        return Services.RegexFinder.ContainsPatternInText(text, StopUseCondition);
     }
 }

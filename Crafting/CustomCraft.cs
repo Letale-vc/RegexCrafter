@@ -2,7 +2,7 @@
 using ImGuiNET;
 using RegexCrafter.Helpers;
 
-namespace RegexCrafter.CraftsMethods;
+namespace RegexCrafter.Crafting;
 
 public class CustomCraftState : CraftState
 {

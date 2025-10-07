@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Numerics;
 using ImGuiNET;
+using RegexCrafter.Enums;
 using RegexCrafter.Helpers;
-using RegexCrafter.Helpers.Enums;
 
-namespace RegexCrafter.CraftsMethods;
+namespace RegexCrafter.Crafting;
 
 public class DefaultCraftState : CraftState
 {

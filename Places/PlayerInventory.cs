@@ -5,8 +5,9 @@ using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using RegexCrafter.Helpers;
 using RegexCrafter.Interface;
+using RegexCrafter.Models;
 
-namespace RegexCrafter;
+namespace RegexCrafter.Places;
 
 public class PlayerInventory : ICurrencyPlace, ICraftingPlace
 {
@@ -20,13 +21,21 @@ public class PlayerInventory : ICurrencyPlace, ICraftingPlace
         GlobalLog.Debug("PlayerInventory initialized.", "PlayerInventory");
     }
 
-    public bool IsVisible => _core.GameController.Game.IngameState.IngameUi.InventoryPanel.IsVisible;
+    public bool IsVisible
+    {
+        get => _core.GameController.Game.IngameState.IngameUi.InventoryPanel.IsVisible;
+    }
 
-    public List<InventoryItemData> Items =>
-        _core.GameController.IngameState.IngameUi.InventoryPanel[InventoryIndex.PlayerInventory].VisibleInventoryItems
+    public List<InventoryItemData> Items
+    {
+        get => _core.GameController.IngameState.IngameUi.InventoryPanel[InventoryIndex.PlayerInventory].VisibleInventoryItems
             .Select(x => new InventoryItemData(x)).ToList();
+    }
 
-    public List<InventoryItemData> NonCorruptItems => [.. Items.Where(x => !x.IsCorrupted)];
+    public List<InventoryItemData> NonCorruptItems
+    {
+        get => [.. Items.Where(x => !x.IsCorrupted)];
+    }
 
     public bool SupportChainCraft { get; } = true;
 
@@ -118,7 +127,10 @@ public class PlayerInventory : ICurrencyPlace, ICraftingPlace
     public SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync(
         Func<InventoryItemData, bool> conditionUse)
     {
-        if (Items is null) return SyncTask.FromResult<(bool Succes, List<InventoryItemData> Items)>((false, []));
+        if (Items is null)
+        {
+            return SyncTask.FromResult<(bool Succes, List<InventoryItemData> Items)>((false, []));
+        }
 
         return SyncTask.FromResult((true, Items.Where(conditionUse).ToList()));
     }

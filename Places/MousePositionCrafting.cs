@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using ExileCore.Shared;
 using RegexCrafter.Helpers;
 using RegexCrafter.Interface;
+using RegexCrafter.Models;
 using SharpDX;
 
-namespace RegexCrafter;
+namespace RegexCrafter.Places;
 
 public class MousePositionCrafting : ICraftingPlace
 {
@@ -18,10 +19,20 @@ public class MousePositionCrafting : ICraftingPlace
         _core = core ?? throw new ArgumentNullException(nameof(core));
     }
 
-    private IInput Input => _core.Input;
-    private Scripts Scripts => _core.Scripts;
+    private IInput Input
+    {
+        get => _core.Input;
+    }
 
-    public bool SupportChainCraft => false;
+    private Scripts Scripts
+    {
+        get => _core.Scripts;
+    }
+
+    public bool SupportChainCraft
+    {
+        get => false;
+    }
 
     public SyncTask<bool> PrepareCraftingPlace()
     {

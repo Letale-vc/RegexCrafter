@@ -1,6 +1,6 @@
 using System;
 using ExileCore.Shared;
-using RegexCrafter.Helpers.Enums;
+using RegexCrafter.Enums;
 
 namespace RegexCrafter.Interface;
 

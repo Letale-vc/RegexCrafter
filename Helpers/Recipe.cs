@@ -12,7 +12,7 @@ public class Recipe
 
     public bool IsMainCondition(string text)
     {
-        return MainConditions.Any(condition => RegexFinder.ContainsPatternInText(text, condition));
+        return MainConditions.Any(condition => Services.RegexFinder.ContainsPatternInText(text, condition));
     }
 
     public void ResetAll()
@@ -93,6 +93,6 @@ public class Recipe
     }
     public bool IsBaseUseCondition(string text)
     {
-        return RegexFinder.ContainsPatternInText(text, BaseUseCondition);
+        return Services.RegexFinder.ContainsPatternInText(text, BaseUseCondition);
     }
 }

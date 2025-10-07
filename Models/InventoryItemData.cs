@@ -11,7 +11,7 @@ using ExileCore.Shared.Enums;
 using RegexCrafter.Helpers;
 using SharpDX;
 
-namespace RegexCrafter;
+namespace RegexCrafter.Models;
 
 public partial class InventoryItemData
 {
