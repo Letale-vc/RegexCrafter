@@ -1,8 +1,9 @@
-namespace RegexCrafter.Enums;
-
-public enum CraftingAction
+namespace RegexCrafter.Enums
 {
-    Continue,
-    Skip,
-    Complete,
+    public enum CraftingAction
+    {
+        Continue,
+        Skip,
+        Complete
+    }
 }

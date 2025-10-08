@@ -1,14 +1,15 @@
 using System;
 using System.ComponentModel;
 
-namespace RegexCrafter.Enums;
-
-public static class EnumExtensions
+namespace RegexCrafter.Enums
 {
-    public static string GetDescription(this Enum value)
+    public static class EnumExtensions
     {
-        var field = value.GetType().GetField(value.ToString());
-        var attribute = (DescriptionAttribute)Attribute.GetCustomAttribute(field, typeof(DescriptionAttribute));
-        return attribute?.Description ?? value.ToString();
+        public static string GetDescription(this Enum value)
+        {
+            var field = value.GetType().GetField(value.ToString());
+            var attribute = (DescriptionAttribute)Attribute.GetCustomAttribute(field, typeof(DescriptionAttribute));
+            return attribute?.Description ?? value.ToString();
+        }
     }
 }

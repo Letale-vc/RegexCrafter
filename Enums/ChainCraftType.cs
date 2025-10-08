@@ -1,7 +1,8 @@
-﻿namespace RegexCrafter.Enums;
-
-public enum ChainCraftType
+﻿namespace RegexCrafter.Enums
 {
-    SequentialItemCrafting,
-    SequentialCurrencyCrafting,
+    public enum ChainCraftType
+    {
+        SequentialItemCrafting,
+        SequentialCurrencyCrafting
+    }
 }

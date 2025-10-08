@@ -10,351 +10,364 @@ using RegexCrafter.Utils;
 using SharpDX;
 using Vector3 = System.Numerics.Vector3;
 
-namespace RegexCrafter.Helpers;
-
-public class InputWithHumanizer(RegexCrafter core) : IInput
+namespace RegexCrafter.Helpers
 {
-    private const string LogName = "Input";
-    private GameController Gc => core.GameController;
-    private Vector2 WindowOffset => Gc.Window.GetWindowRectangleTimeCache.TopLeft;
-
-    public async SyncTask<bool> SimulateKeyEvent(Keys key, bool down = true, bool up = true,
-        Keys extraKey = Keys.None, CancellationToken ct = default)
+    public class InputWithHumanizer(RegexCrafter core) : IInput
     {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
+        private const string LogName = "Input";
+        private GameController Gc => core.GameController;
+        private Vector2 WindowOffset => Gc.Window.GetWindowRectangleTimeCache.TopLeft;
 
-
-        var inputController = tryGetInputController(core.Name);
-        if (inputController == null)
+        public async SyncTask<bool> SimulateKeyEvent(Keys key, bool down = true, bool up = true,
+            Keys extraKey = Keys.None, CancellationToken ct = default)
         {
-            GlobalLog.Error("InputController is null.", LogName);
-            return false;
-        }
-
-        using (inputController)
-        {
-            if (down)
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
             {
-                if (extraKey != Keys.None)
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+
+            var inputController = tryGetInputController(core.Name);
+            if (inputController == null)
+            {
+                GlobalLog.Error("InputController is null.", LogName);
+                return false;
+            }
+
+            using (inputController)
+            {
+                if (down)
                 {
-                    GlobalLog.Debug($"KeyDown {extraKey}", LogName);
-                    if (await inputController.KeyDown(extraKey, ct))
+                    if (extraKey != Keys.None)
                     {
-                        GlobalLog.Debug($"KeyDown {extraKey} success", LogName);
+                        GlobalLog.Debug($"KeyDown {extraKey}", LogName);
+                        if (await inputController.KeyDown(extraKey, ct))
+                        {
+                            GlobalLog.Debug($"KeyDown {extraKey} success", LogName);
+                        }
+                        else
+                        {
+                            GlobalLog.Error($"KeyDown {extraKey} failed", LogName);
+                            return false;
+                        }
                     }
-                    else
+
+                    GlobalLog.Debug($"KeyDown {key}", LogName);
+                    if (!await inputController.KeyDown(key, ct))
                     {
-                        GlobalLog.Error($"KeyDown {extraKey} failed", LogName);
                         return false;
                     }
                 }
 
-                GlobalLog.Debug($"KeyDown {key}", LogName);
-                if (!await inputController.KeyDown(key, ct)) return false;
+                if (!up)
+                {
+                    return true;
+                }
+                if (extraKey != Keys.None)
+                {
+                    GlobalLog.Debug($"KeyUp {extraKey}", LogName);
+                    if (!await inputController.KeyUp(extraKey, cancellationToken: ct))
+                    {
+                        return false;
+                    }
+                }
+
+                GlobalLog.Debug($"KeyUp {key}", LogName);
+                if (!await inputController.KeyUp(key, cancellationToken: ct))
+                {
+                    return false;
+                }
             }
 
-            if (!up) return true;
-            if (extraKey != Keys.None)
+            return true;
+        }
+
+        public SyncTask<bool> KeyDown(Keys key, CancellationToken ct = default)
+        {
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
             {
-                GlobalLog.Debug($"KeyUp {extraKey}", LogName);
-                if (!await inputController.KeyUp(extraKey, cancellationToken: ct)) return false;
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return SyncTask.FromResult(false);
             }
 
-            GlobalLog.Debug($"KeyUp {key}", LogName);
-            if (!await inputController.KeyUp(key, cancellationToken: ct)) return false;
+            var inputController = tryGetInputController(core.Name);
+            if (inputController == null)
+            {
+                GlobalLog.Error("InputController is null.", LogName);
+                return SyncTask.FromResult(false);
+            }
+
+            using (inputController)
+
+            {
+                return inputController.KeyDown(key, ct);
+            }
         }
 
-        return true;
-    }
-
-    public SyncTask<bool> KeyDown(Keys key, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
+        public SyncTask<bool> KeyUp(Keys key, CancellationToken ct = default)
         {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return SyncTask.FromResult(false);
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return SyncTask.FromResult(false);
+            }
+
+            var inputController = tryGetInputController(core.Name);
+
+            if (inputController == null)
+            {
+                GlobalLog.Error("InputController is null.", LogName);
+                return SyncTask.FromResult(false);
+            }
+
+            using (inputController)
+            {
+                return inputController.KeyUp(key, true, ct);
+            }
         }
 
-        var inputController = tryGetInputController(core.Name);
-        if (inputController == null)
+        public async SyncTask<bool> SimulateKeyEvent(Keys key, CancellationToken ct = default)
         {
-            GlobalLog.Error("InputController is null.", LogName);
-            return SyncTask.FromResult(false);
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            using (inputController)
+            {
+                return await inputController.KeyDown(key, ct) && await inputController.KeyUp(key, true, ct);
+            }
         }
 
-        using (inputController)
-
+        public async SyncTask<bool> SimulateKeyEvent(Keys key, Keys extraKey, CancellationToken ct = default)
         {
-            return inputController.KeyDown(key, ct);
-        }
-    }
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
 
-    public SyncTask<bool> KeyUp(Keys key, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
+            var inputController = tryGetInputController(core.Name);
+            if (inputController == null)
+            {
+                GlobalLog.Error("InputController is null.", LogName);
+                return false;
+            }
+
+            using (inputController)
+            {
+                return await inputController.KeyDown(extraKey, ct) && await inputController.KeyDown(key, ct) &&
+                       await inputController.KeyUp(key, true, ct) && await inputController.KeyUp(extraKey, true, ct);
+            }
+        }
+
+        public void CleanKeys()
         {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return SyncTask.FromResult(false);
+            Keyboard.KeyUp(Keys.Alt);
+            Keyboard.KeyUp(Keys.Control);
+            Keyboard.KeyUp(Keys.Shift);
+            Keyboard.KeyUp(Keys.LShiftKey);
+            Keyboard.KeyUp(Keys.LControlKey);
+            Keyboard.KeyUp(Keys.RShiftKey);
+            Keyboard.KeyUp(Keys.RControlKey);
         }
 
-        var inputController = tryGetInputController(core.Name);
-
-        if (inputController == null)
+        public async SyncTask<bool> MoveMouseToScreenPosition(RectangleF rec, CancellationToken ct = default)
         {
-            GlobalLog.Error("InputController is null.", LogName);
-            return SyncTask.FromResult(false);
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            if (inputController == null)
+            {
+                GlobalLog.Error("InputController is null.", LogName);
+                return false;
+            }
+
+            GlobalLog.Debug($"MoveMouseToScreenPosition {rec}", LogName);
+            using (inputController)
+            {
+                return await inputController.MoveMouse(ToVector2Num(rec), ct);
+            }
         }
 
-        using (inputController)
+        public async SyncTask<bool> MoveMouseToScreenPosition(System.Numerics.Vector2 pos, CancellationToken ct = default)
         {
-            return inputController.KeyUp(key, true, ct);
-        }
-    }
+            GlobalLog.Debug($"MoveMouseToScreenPosition {pos}", LogName);
 
-    public async SyncTask<bool> SimulateKeyEvent(Keys key, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            using (inputController)
+            {
+                return await inputController.MoveMouse(pos, ct);
+            }
+        }
+
+        public async SyncTask<bool> MoveMouseToWorldPosition(Vector3 pos, CancellationToken ct = default)
         {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            var screenPos = Gc.Game.IngameState.Camera.WorldToScreen(pos);
+            GlobalLog.Debug($"MoveMouseToWorldPosition {screenPos}", LogName);
+            using (inputController)
+            {
+                return await inputController.MoveMouse(screenPos, ct);
+            }
         }
 
-        var inputController = tryGetInputController(core.Name);
-        using (inputController)
+        public async SyncTask<bool> Click(MouseButtons button, CancellationToken ct = default)
         {
-            return await inputController.KeyDown(key, ct) && await inputController.KeyUp(key, true, ct);
-        }
-    }
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
 
-    public async SyncTask<bool> SimulateKeyEvent(Keys key, Keys extraKey, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
+            var inputController = tryGetInputController(core.Name);
+            GlobalLog.Debug($"Click {button}", LogName);
+            using (inputController)
+            {
+                return await inputController.Click(button, ct);
+            }
+        }
+
+        public async SyncTask<bool> Click(MouseButtons button, System.Numerics.Vector2 position,
+            CancellationToken ct = default)
         {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            GlobalLog.Debug($"Click {button} {position}", LogName);
+            using (inputController)
+            {
+                return await inputController.Click(button, position, ct);
+            }
         }
 
-        var inputController = tryGetInputController(core.Name);
-        if (inputController == null)
+        public async SyncTask<bool> Click(MouseButtons button, RectangleF rec, CancellationToken ct = default)
         {
-            GlobalLog.Error("InputController is null.", LogName);
-            return false;
+            if (rec.Width <= 0 || rec.Height <= 0)
+            {
+                GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
+                throw new ArgumentException("Invalid RectangleF for click", nameof(rec));
+            }
+
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            GlobalLog.Debug($"Move and click {button} {rec}", LogName);
+            using (inputController)
+            {
+                return await inputController.Click(button, ToVector2Num(rec), ct);
+            }
         }
 
-        using (inputController)
+        public async SyncTask<bool> Click(CancellationToken ct = default)
         {
-            return await inputController.KeyDown(extraKey, ct) && await inputController.KeyDown(key, ct) &&
-                   await inputController.KeyUp(key, true, ct) && await inputController.KeyUp(extraKey, true, ct);
+            GlobalLog.Debug($"Click {MouseButtons.Left}", LogName);
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            using (inputController)
+            {
+                return await inputController.Click(ct);
+            }
         }
-    }
 
-    public void CleanKeys()
-    {
-        Keyboard.KeyUp(Keys.Alt);
-        Keyboard.KeyUp(Keys.Control);
-        Keyboard.KeyUp(Keys.Shift);
-        Keyboard.KeyUp(Keys.LShiftKey);
-        Keyboard.KeyUp(Keys.LControlKey);
-        Keyboard.KeyUp(Keys.RShiftKey);
-        Keyboard.KeyUp(Keys.RControlKey);
-    }
-
-    public async SyncTask<bool> MoveMouseToScreenPosition(RectangleF rec, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
+        public async SyncTask<bool> Click(RectangleF rec, CancellationToken ct = default)
         {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
+            var tryGetInputController =
+                core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
+                    "InputHumanizer.TryGetInputController");
+            if (tryGetInputController == null)
+            {
+                GlobalLog.Error("InputHumanizer method not registered.", LogName);
+                return false;
+            }
+
+            var inputController = tryGetInputController(core.Name);
+            GlobalLog.Debug($"Move and Click {MouseButtons.Left}", LogName);
+            using (inputController)
+            {
+                return await inputController.Click(MouseButtons.Left, ToVector2Num(rec), ct);
+            }
         }
 
-        var inputController = tryGetInputController(core.Name);
-        if (inputController == null)
+        private System.Numerics.Vector2 ToVector2Num(RectangleF rec)
         {
-            GlobalLog.Error("InputController is null.", LogName);
-            return false;
+            if (rec.Width <= 0 || rec.Height <= 0)
+            {
+                GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
+                throw new ArgumentException("Invalid RectangleF for click", nameof(rec));
+            }
+
+            var position = rec.ClickRandomNum(20, 20);
+            position += WindowOffset.ToVector2Num();
+            return position;
         }
-
-        GlobalLog.Debug($"MoveMouseToScreenPosition {rec}", LogName);
-        using (inputController)
-        {
-            return await inputController.MoveMouse(ToVector2Num(rec), ct);
-        }
-    }
-
-    public async SyncTask<bool> MoveMouseToScreenPosition(System.Numerics.Vector2 pos, CancellationToken ct = default)
-    {
-        GlobalLog.Debug($"MoveMouseToScreenPosition {pos}", LogName);
-
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
-
-        var inputController = tryGetInputController(core.Name);
-        using (inputController)
-        {
-            return await inputController.MoveMouse(pos, ct);
-        }
-    }
-
-    public async SyncTask<bool> MoveMouseToWorldPosition(Vector3 pos, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
-
-        var inputController = tryGetInputController(core.Name);
-        var screenPos = Gc.Game.IngameState.Camera.WorldToScreen(pos);
-        GlobalLog.Debug($"MoveMouseToWorldPosition {screenPos}", LogName);
-        using (inputController)
-        {
-            return await inputController.MoveMouse(screenPos, ct);
-        }
-    }
-
-    public async SyncTask<bool> Click(MouseButtons button, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
-
-        var inputController = tryGetInputController(core.Name);
-        GlobalLog.Debug($"Click {button}", LogName);
-        using (inputController)
-        {
-            return await inputController.Click(button, ct);
-        }
-    }
-
-    public async SyncTask<bool> Click(MouseButtons button, System.Numerics.Vector2 position,
-        CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
-
-        var inputController = tryGetInputController(core.Name);
-        GlobalLog.Debug($"Click {button} {position}", LogName);
-        using (inputController)
-        {
-            return await inputController.Click(button, position, ct);
-        }
-    }
-
-    public async SyncTask<bool> Click(MouseButtons button, RectangleF rec, CancellationToken ct = default)
-    {
-        if (rec.Width <= 0 || rec.Height <= 0)
-        {
-            GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
-            throw new ArgumentException("Invalid RectangleF for click", nameof(rec));
-        }
-
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
-
-        var inputController = tryGetInputController(core.Name);
-        GlobalLog.Debug($"Move and click {button} {rec}", LogName);
-        using (inputController)
-        {
-            return await inputController.Click(button, ToVector2Num(rec), ct);
-        }
-    }
-
-    public async SyncTask<bool> Click(CancellationToken ct = default)
-    {
-        GlobalLog.Debug($"Click {MouseButtons.Left}", LogName);
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
-
-        var inputController = tryGetInputController(core.Name);
-        using (inputController)
-        {
-            return await inputController.Click(ct);
-        }
-    }
-
-    public async SyncTask<bool> Click(RectangleF rec, CancellationToken ct = default)
-    {
-        var tryGetInputController =
-            core.GameController.PluginBridge.GetMethod<Func<string, IInputController>>(
-                "InputHumanizer.TryGetInputController");
-        if (tryGetInputController == null)
-        {
-            GlobalLog.Error("InputHumanizer method not registered.", LogName);
-            return false;
-        }
-
-        var inputController = tryGetInputController(core.Name);
-        GlobalLog.Debug($"Move and Click {MouseButtons.Left}", LogName);
-        using (inputController)
-        {
-            return await inputController.Click(MouseButtons.Left, ToVector2Num(rec), ct);
-        }
-    }
-
-    private System.Numerics.Vector2 ToVector2Num(RectangleF rec)
-    {
-        if (rec.Width <= 0 || rec.Height <= 0)
-        {
-            GlobalLog.Error($"Invalid RectangleF for click: {rec}", LogName);
-            throw new ArgumentException("Invalid RectangleF for click", nameof(rec));
-        }
-
-        var position = rec.ClickRandomNum(20, 20);
-        position += WindowOffset.ToVector2Num();
-        return position;
     }
 }

@@ -1,12 +1,13 @@
 ﻿using System.ComponentModel;
 
-namespace RegexCrafter.Enums;
-
-public enum CurrencyMethodCraftType
+namespace RegexCrafter.Enums
 {
-    [Description("Chaos Orb")] Chaos,
-    [Description("Scouring and Alchemy")] ScouringAndAlchemy,
-    [Description("Alteration spam")] AlterationSpam
+    public enum CurrencyMethodCraftType
+    {
+        [Description("Chaos Orb")] Chaos,
+        [Description("Scouring and Alchemy")] ScouringAndAlchemy,
+        [Description("Alteration spam")] AlterationSpam
+    }
 }
 
 // public static class EnumExtensions

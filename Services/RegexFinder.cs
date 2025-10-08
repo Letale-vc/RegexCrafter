@@ -4,236 +4,257 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using RegexCrafter.Helpers;
 
-namespace RegexCrafter.Services;
-
-/// <summary>
-///     Provides methods for pattern matching and text analysis using regular expressions
-/// </summary>
-public static partial class RegexFinder
+namespace RegexCrafter.Services
 {
-    private const string LogName = "RegexFinder";
-    private static readonly Dictionary<string, Regex> RegexCache = new();
-
     /// <summary>
-    ///     Gets a cached regex instance or creates a new one for the given pattern
+    ///     Provides methods for pattern matching and text analysis using regular expressions
     /// </summary>
-    private static Regex GetOrCreateRegex(string pattern)
+    public static partial class RegexFinder
     {
-        if (string.IsNullOrEmpty(pattern))
-            throw new ArgumentNullException(nameof(pattern));
+        private const string LogName = "RegexFinder";
+        private static readonly Dictionary<string, Regex> RegexCache = new();
 
-        if (RegexCache.TryGetValue(pattern, out var regex))
+        /// <summary>
+        ///     Gets a cached regex instance or creates a new one for the given pattern
+        /// </summary>
+        private static Regex GetOrCreateRegex(string pattern)
+        {
+            if (string.IsNullOrEmpty(pattern))
+            {
+                throw new ArgumentNullException(nameof(pattern));
+            }
+
+            if (RegexCache.TryGetValue(pattern, out var regex))
+            {
+                return regex;
+            }
+
+            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            RegexCache[pattern] = regex;
             return regex;
-
-        regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
-        RegexCache[pattern] = regex;
-        return regex;
-    }
-
-    /// <summary>
-    ///     Checks if text matches the given regex pattern
-    /// </summary>
-    private static bool IsMatch(string text, string pattern)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(pattern);
-
-        var regex = GetOrCreateRegex(pattern);
-        return regex.IsMatch(text);
-    }
-
-    #region Pattern Parsing
-
-    /// <summary>
-    ///     Parses a pattern string into exclude, include, and single include patterns
-    /// </summary>
-    public static (List<string> Exclude, List<string> Include, List<string> SingleInclude) ParsePattern(
-        string sourceRegex)
-    {
-        ArgumentNullException.ThrowIfNull(sourceRegex);
-
-        var tokens = GetTokenRegex()
-            .Matches(sourceRegex)
-            .Select(m => m.Value)
-            .ToArray();
-
-        var exclude = new List<string>();
-        var include = new List<string>();
-        var singleInclude = new List<string>();
-
-        foreach (var token in tokens)
-        {
-            var part = token.Trim('"');
-            if (part.StartsWith('!'))
-                exclude.Add(part[1..]);
-            else if (part.StartsWith('~'))
-                singleInclude.Add(part[1..]);
-            else if (!string.IsNullOrWhiteSpace(part))
-                include.Add(part);
         }
 
-        return (exclude, include, singleInclude);
-    }
-
-    #endregion
-
-    #region Public Text Analysis Methods
-
-    /// <summary>
-    ///     Checks if the text contains any matches for the given pattern
-    /// </summary>
-    public static bool ContainsPatternInText(string text, string pattern)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(pattern);
-
-        var lines = SplitLines(text);
-        return ContainsPatternInLines(lines, pattern);
-    }
-
-    /// <summary>
-    ///     Checks if the text contains any matches for any of the patterns
-    /// </summary>
-    public static bool ContainsPatternInText(string text, List<string> patterns)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(patterns);
-
-        var lines = SplitLines(text);
-        return patterns.Any(x => ContainsPatternInLines(lines, x));
-    }
-
-    #endregion
-
-    #region Pattern Matching Logic
-
-    private static bool ContainsPatternInLines(IEnumerable<string> lines, string patternsLineText)
-    {
-        ArgumentNullException.ThrowIfNull(lines);
-        ArgumentNullException.ThrowIfNull(patternsLineText);
-
-        var linesList = lines.ToList();
-        var (exclude, include, singleInclude) = ParsePattern(patternsLineText);
-
-        if (exclude.Count == 0 && include.Count == 0 && singleInclude.Count == 0)
+        /// <summary>
+        ///     Checks if text matches the given regex pattern
+        /// </summary>
+        private static bool IsMatch(string text, string pattern)
         {
-            GlobalLog.Error($"Regex pattern is empty: {patternsLineText}", LogName);
-            throw new ArgumentException("Pattern cannot be empty", nameof(patternsLineText));
+            ArgumentNullException.ThrowIfNull(text);
+            ArgumentNullException.ThrowIfNull(pattern);
+
+            var regex = GetOrCreateRegex(pattern);
+            return regex.IsMatch(text);
         }
 
-        // Check exclusions first
-        if (exclude.Count > 0)
+        #region Pattern Parsing
+
+        /// <summary>
+        ///     Parses a pattern string into exclude, include, and single include patterns
+        /// </summary>
+        public static (List<string> Exclude, List<string> Include, List<string> SingleInclude) ParsePattern(
+            string sourceRegex)
         {
-            var result = ContainsAnyPattern(linesList, exclude, out var foundPatterns);
-            GlobalLog.Info(
-                $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
-                LogName);
-            if (result) return false; // If any exclude pattern matches, return false
+            ArgumentNullException.ThrowIfNull(sourceRegex);
+
+            var tokens = GetTokenRegex()
+                .Matches(sourceRegex)
+                .Select(m => m.Value)
+                .ToArray();
+
+            var exclude = new List<string>();
+            var include = new List<string>();
+            var singleInclude = new List<string>();
+
+            foreach (var token in tokens)
+            {
+                var part = token.Trim('"');
+                if (part.StartsWith('!'))
+                {
+                    exclude.Add(part[1..]);
+                }
+                else if (part.StartsWith('~'))
+                {
+                    singleInclude.Add(part[1..]);
+                }
+                else if (!string.IsNullOrWhiteSpace(part))
+                {
+                    include.Add(part);
+                }
+            }
+
+            return (exclude, include, singleInclude);
         }
 
-        // Check single inclusion patterns
-        if (singleInclude.Count > 0)
+        #endregion
+
+        #region Public Text Analysis Methods
+
+        /// <summary>
+        ///     Checks if the text contains any matches for the given pattern
+        /// </summary>
+        public static bool ContainsPatternInText(string text, string pattern)
         {
-            var result = ContainsAnyPattern(linesList, singleInclude, out var foundPatterns);
-            GlobalLog.Info(
-                $"Include Only one: need find {foundPatterns.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
-                LogName);
-            if (result && foundPatterns.Count > 1) return false;
+            ArgumentNullException.ThrowIfNull(text);
+            ArgumentNullException.ThrowIfNull(pattern);
+
+            var lines = SplitLines(text);
+            return ContainsPatternInLines(lines, pattern);
         }
 
-        // Check required inclusion patterns
-        if (include.Count > 0)
+        /// <summary>
+        ///     Checks if the text contains any matches for any of the patterns
+        /// </summary>
+        public static bool ContainsPatternInText(string text, List<string> patterns)
         {
-            var result = ContainsAllPatterns(linesList, include, out var foundPatterns);
-            GlobalLog.Info(
-                $"Include: need find {foundPatterns.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns)}]",
-                LogName);
-            return result;
+            ArgumentNullException.ThrowIfNull(text);
+            ArgumentNullException.ThrowIfNull(patterns);
+
+            var lines = SplitLines(text);
+            return patterns.Any(x => ContainsPatternInLines(lines, x));
         }
 
-        return true;
-    }
+        #endregion
 
-    private static bool ContainsAnyPattern(string text, IEnumerable<string> patterns, out List<string> foundPatterns)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(patterns);
+        #region Pattern Matching Logic
 
-        var lines = SplitLines(text);
-        return ContainsAnyPattern(lines, patterns, out foundPatterns);
-    }
-
-    private static bool ContainsAnyPattern(IEnumerable<string> lines, IEnumerable<string> patterns,
-        out List<string> foundPatterns)
-    {
-        ArgumentNullException.ThrowIfNull(lines);
-        ArgumentNullException.ThrowIfNull(patterns);
-
-        foundPatterns = patterns
-            .Where(p => lines.Any(line => LineMatches(line, p)))
-            .ToList();
-        return foundPatterns.Count > 0;
-    }
-
-    private static bool ContainsAllPatterns(string text, IEnumerable<string> patterns, out List<string> foundPatterns)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(patterns);
-
-        var lines = SplitLines(text);
-        return ContainsAllPatterns(lines, patterns, out foundPatterns);
-    }
-
-    private static bool ContainsAllPatterns(IEnumerable<string> lines, IEnumerable<string> patterns,
-        out List<string> foundPatterns)
-    {
-        ArgumentNullException.ThrowIfNull(lines);
-        ArgumentNullException.ThrowIfNull(patterns);
-
-        foundPatterns = new List<string>();
-        var patternsList = patterns.ToList();
-        if (patternsList.Count == 0)
-            return false;
-
-        foreach (var pattern in patternsList)
+        private static bool ContainsPatternInLines(IEnumerable<string> lines, string patternsLineText)
         {
-            if (!lines.Any(line => LineMatches(line, pattern)))
+            ArgumentNullException.ThrowIfNull(lines);
+            ArgumentNullException.ThrowIfNull(patternsLineText);
+
+            var linesList = lines.ToList();
+            var (exclude, include, singleInclude) = ParsePattern(patternsLineText);
+
+            if (exclude.Count == 0 && include.Count == 0 && singleInclude.Count == 0)
+            {
+                GlobalLog.Error($"Regex pattern is empty: {patternsLineText}", LogName);
+                throw new ArgumentException("Pattern cannot be empty", nameof(patternsLineText));
+            }
+
+            // Check exclusions first
+            if (exclude.Count > 0)
+            {
+                var result = ContainsAnyPattern(linesList, exclude, out var foundPatterns);
+                GlobalLog.Info(
+                    $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
+                    LogName);
+                if (result)
+                {
+                    return false; // If any exclude pattern matches, return false
+                }
+            }
+
+            // Check single inclusion patterns
+            if (singleInclude.Count > 0)
+            {
+                var result = ContainsAnyPattern(linesList, singleInclude, out var foundPatterns);
+                GlobalLog.Info(
+                    $"Include Only one: need find {foundPatterns.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
+                    LogName);
+                if (result && foundPatterns.Count > 1)
+                {
+                    return false;
+                }
+            }
+
+            // Check required inclusion patterns
+            if (include.Count > 0)
+            {
+                var result = ContainsAllPatterns(linesList, include, out var foundPatterns);
+                GlobalLog.Info(
+                    $"Include: need find {foundPatterns.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns)}]",
+                    LogName);
+                return result;
+            }
+
+            return true;
+        }
+
+        private static bool ContainsAnyPattern(string text, IEnumerable<string> patterns, out List<string> foundPatterns)
+        {
+            ArgumentNullException.ThrowIfNull(text);
+            ArgumentNullException.ThrowIfNull(patterns);
+
+            var lines = SplitLines(text);
+            return ContainsAnyPattern(lines, patterns, out foundPatterns);
+        }
+
+        private static bool ContainsAnyPattern(IEnumerable<string> lines, IEnumerable<string> patterns,
+            out List<string> foundPatterns)
+        {
+            ArgumentNullException.ThrowIfNull(lines);
+            ArgumentNullException.ThrowIfNull(patterns);
+
+            foundPatterns = patterns
+                .Where(p => lines.Any(line => LineMatches(line, p)))
+                .ToList();
+            return foundPatterns.Count > 0;
+        }
+
+        private static bool ContainsAllPatterns(string text, IEnumerable<string> patterns, out List<string> foundPatterns)
+        {
+            ArgumentNullException.ThrowIfNull(text);
+            ArgumentNullException.ThrowIfNull(patterns);
+
+            var lines = SplitLines(text);
+            return ContainsAllPatterns(lines, patterns, out foundPatterns);
+        }
+
+        private static bool ContainsAllPatterns(IEnumerable<string> lines, IEnumerable<string> patterns,
+            out List<string> foundPatterns)
+        {
+            ArgumentNullException.ThrowIfNull(lines);
+            ArgumentNullException.ThrowIfNull(patterns);
+
+            foundPatterns = new List<string>();
+            var patternsList = patterns.ToList();
+            if (patternsList.Count == 0)
+            {
                 return false;
-            foundPatterns.Add(pattern);
+            }
+
+            foreach (var pattern in patternsList)
+            {
+                if (!lines.Any(line => LineMatches(line, pattern)))
+                {
+                    return false;
+                }
+                foundPatterns.Add(pattern);
+            }
+
+            return true;
         }
 
-        return true;
+        #endregion
+
+        #region Helper Methods
+
+        private static string[] SplitLines(string text)
+        {
+            ArgumentNullException.ThrowIfNull(text);
+            return text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        private static bool LineMatches(string line, string pattern)
+        {
+            ArgumentNullException.ThrowIfNull(line);
+            ArgumentNullException.ThrowIfNull(pattern);
+
+            var subLines = SplitLines(line);
+            return subLines.Any(l => IsMatch(l, pattern));
+        }
+
+        private static string NormalizeText(string input)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            return input.Contains(' ')
+                ? input.ToLower()
+                : GetTokenRegex().Replace(input, " $1").ToLower();
+        }
+
+        [GeneratedRegex(@"[\""].+?[\""]|[^ ]+")]
+        private static partial Regex GetTokenRegex();
+
+        #endregion
     }
-
-    #endregion
-
-    #region Helper Methods
-
-    private static string[] SplitLines(string text)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        return text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-    }
-
-    private static bool LineMatches(string line, string pattern)
-    {
-        ArgumentNullException.ThrowIfNull(line);
-        ArgumentNullException.ThrowIfNull(pattern);
-
-        var subLines = SplitLines(line);
-        return subLines.Any(l => IsMatch(l, pattern));
-    }
-
-    private static string NormalizeText(string input)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-        return input.Contains(' ')
-            ? input.ToLower()
-            : GetTokenRegex().Replace(input, " $1").ToLower();
-    }
-
-    [GeneratedRegex(@"[\""].+?[\""]|[^ ]+")]
-    private static partial Regex GetTokenRegex();
-
-    #endregion
 }

@@ -1,21 +1,24 @@
 ﻿#nullable enable
-namespace RegexCrafter.Helpers;
+using RegexCrafter.Services;
 
-public class CraftStep
+namespace RegexCrafter.Helpers
 {
-    public string UseCondition { get; set; } = string.Empty;
-    public string Currency { get; set; } = string.Empty;
-    public string StopUseCondition { get; set; } = string.Empty;
-
-    public bool IsOneTimeUse { get; set; } = false;
-
-    public bool IsUseCondition(string text)
+    public class CraftStep
     {
-        return Services.RegexFinder.ContainsPatternInText(text, UseCondition);
-    }
+        public string UseCondition { get; set; } = string.Empty;
+        public string Currency { get; set; } = string.Empty;
+        public string StopUseCondition { get; set; } = string.Empty;
 
-    public bool IsStopUseCondition(string text)
-    {
-        return Services.RegexFinder.ContainsPatternInText(text, StopUseCondition);
+        public bool IsOneTimeUse { get; set; } = false;
+
+        public bool IsUseCondition(string text)
+        {
+            return RegexFinder.ContainsPatternInText(text, UseCondition);
+        }
+
+        public bool IsStopUseCondition(string text)
+        {
+            return RegexFinder.ContainsPatternInText(text, StopUseCondition);
+        }
     }
 }

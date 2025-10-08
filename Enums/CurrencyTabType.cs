@@ -1,8 +1,9 @@
-namespace RegexCrafter.Enums;
-
-public enum CurrencyTabType
+namespace RegexCrafter.Enums
 {
-    None,
-    General,
-    Exotic
+    public enum CurrencyTabType
+    {
+        None,
+        General,
+        Exotic
+    }
 }

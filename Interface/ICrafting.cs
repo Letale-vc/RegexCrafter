@@ -1,10 +1,5 @@
-﻿using ExileCore.Shared;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Threading;
+using ExileCore.Shared;
 
 namespace RegexCrafter.Interface
 {
@@ -16,6 +11,5 @@ namespace RegexCrafter.Interface
         public void OnClose();
         public void Render();
         public void Clean();
-
     }
 }
