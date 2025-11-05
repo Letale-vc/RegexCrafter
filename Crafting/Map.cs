@@ -18,7 +18,7 @@ namespace RegexCrafter.Crafting
     {
         private const string LogName = "CraftMap";
 
-        private const string BaseUseCondition = "\"!corrupted|currency\" \"map\"";
+        private const string BaseUseCondition = "\"!corrupted\" \"map\"";
 
         private readonly string[] _chiselList = CurrencyNames.GetChiselNames().ToArray();
 
