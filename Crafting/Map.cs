@@ -1,9 +1,9 @@
-using System;
-using System.Linq;
-using System.Numerics;
 using ImGuiNET;
 using RegexCrafter.Enums;
 using RegexCrafter.Helpers;
+using System;
+using System.Linq;
+using System.Numerics;
 
 namespace RegexCrafter.Crafting
 {
@@ -111,12 +111,21 @@ namespace RegexCrafter.Crafting
 
         private void ApplyQualityStep()
         {
-            if (CurrentState.Recipe.CraftSteps[0].Currency == _chiselList[CurrentState.TypeChisel])
+            if (!CurrentState.UseAddQuality)
+            {
+                while (_chiselList.Contains(CurrentState.Recipe.CraftSteps.FirstOrDefault()?.Currency))
+                {
+                    CurrentState.Recipe.RemoveStepAt(0);
+                }
+                return;
+            }
+
+            if (CurrentState.Recipe.CraftSteps.Count > 0 && CurrentState.Recipe.CraftSteps[0].Currency == _chiselList[CurrentState.TypeChisel])
             {
                 return;
             }
 
-            if (_chiselList.Contains(CurrentState.Recipe.CraftSteps[0].Currency))
+            if (CurrentState.Recipe.CraftSteps.Count > 0 && _chiselList.Contains(CurrentState.Recipe.CraftSteps[0].Currency))
             {
                 CurrentState.Recipe.RemoveStepAt(0);
             }
