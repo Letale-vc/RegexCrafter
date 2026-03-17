@@ -1,15 +1,16 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Windows.Forms;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
+using RegexCrafter.Enums;
 using RegexCrafter.Helpers;
 using SharpDX;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
 
 namespace RegexCrafter.Models
 {
@@ -122,9 +123,6 @@ namespace RegexCrafter.Models
                     DeliriumOrbNumber = EnchantedStats.Count(x => x.Contains("Delirium Reward"));
                 }
 
-                MapTier = Entity.TryGetComponent<Map>(out var map) ? map.Tier : 0;
-                IsMap = MapTier > 0;
-                IsT17Map = MapTier == 17;
                 CustomTextLines = GetCustomTextLines();
             }
             catch (Exception e)
@@ -232,5 +230,12 @@ namespace RegexCrafter.Models
 
         [GeneratedRegex("(?<!^)([A-Z])")]
         private static partial Regex MyRegex();
+    }
+    public class MapData
+    {
+        public bool IsMap;
+        public MapTypes MapType;
+        public int MapTier;
+        public MapOccupier Occupier { get; set; } = MapOccupier.None;
     }
 }

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using ExileCore;
+﻿using ExileCore;
 using ExileCore.Shared;
 using ImGuiNET;
 using RegexCrafter.Crafting;
@@ -10,6 +6,10 @@ using RegexCrafter.Enums;
 using RegexCrafter.Helpers;
 using RegexCrafter.Interface;
 using RegexCrafter.Places;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using Vector2 = System.Numerics.Vector2;
 
 namespace RegexCrafter
@@ -22,8 +22,7 @@ namespace RegexCrafter
         private readonly string[] _craftPlaces =
             Enum.GetValues(typeof(CraftPlaceType)).Cast<CraftPlaceType>().Select(x => x.GetDescription()).ToArray();
 
-        private readonly string[] _currencyPlace = Enum.GetValues(typeof(CurrencyPlaceType)).Cast<CurrencyPlaceType>()
-            .Select(x => x.GetDescription()).ToArray();
+        private readonly string[] _currencyPlace = Enum.GetValues<CurrencyPlaceType>().Select(x => x.GetDescription()).ToArray();
 
         private int _craftPlaceIdx;
         private int _currencyPlaceIdx;
@@ -35,7 +34,7 @@ namespace RegexCrafter
         public Wait Wait { get; set; }
         public IInput Input { get; set; }
         public PlayerInventory PlayerInventory { get; set; }
-        public MousePositionCrafting MousePositionCrafting { get; private set; }
+        public MousePosition MousePositionCrafting { get; private set; }
 
         public ICurrencyPlace CurrencyPlace
         {
@@ -66,7 +65,7 @@ namespace RegexCrafter
             Wait = new Wait(GameController);
             Stash = new Stash(this);
             PlayerInventory = new PlayerInventory(this);
-            MousePositionCrafting = new MousePositionCrafting(this);
+            MousePositionCrafting = new MousePosition(this);
             Scripts = new Scripts(this);
             Input = new InputWithHumanizer(this);
             ElementHelper.Init(GameController.Game.IngameState.IngameUi.Cursor, Input, Wait);
@@ -121,7 +120,7 @@ namespace RegexCrafter
                     var name = prop.Name;
 
                     var idx = tabs.IndexOf(prop.GetValue(Settings.TabSettings)?.ToString());
-                    if (ImGui.Combo(name, ref idx, tabs.ToArray(), tabs.Count))
+                    if (ImGui.Combo(name, ref idx, tabs.ToArray(), tabs.Length))
                     {
                         prop.SetValue(Settings.TabSettings, tabs[idx]);
                     }

@@ -1,15 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using ExileCore.Shared;
+﻿using ExileCore.Shared;
 using RegexCrafter.Models;
+using System.Collections.Generic;
 
 namespace RegexCrafter.Interface
 {
+    public readonly record struct GetItemsResult(bool Success, IReadOnlyList<ItemData> Item);
     public interface ICraftingPlace
     {
         bool SupportChainCraft { get; }
-        SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync(Func<InventoryItemData, bool> conditionUse);
-        SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync();
+        SyncTask<GetItemsResult> GetItemsAsync();
         SyncTask<bool> PrepareCraftingPlace();
         bool CanCraft();
         //bool CanCraft(Recipe recipe);

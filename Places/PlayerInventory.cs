@@ -1,11 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using ExileCore.PoEMemory.Components;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using RegexCrafter.Helpers;
 using RegexCrafter.Interface;
 using RegexCrafter.Models;
+using SharpDX;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RegexCrafter.Places
 {
@@ -22,20 +24,27 @@ namespace RegexCrafter.Places
         }
 
         public bool IsVisible => _core.GameController.Game.IngameState.IngameUi.InventoryPanel.IsVisible;
-
-        public List<InventoryItemData> Items
-        {
-            get => _core.GameController.IngameState.IngameUi.InventoryPanel[InventoryIndex.PlayerInventory].VisibleInventoryItems
-                .Select(x => new InventoryItemData(x)).ToList();
-        }
-
-        public List<InventoryItemData> NonCorruptItems => [.. Items.Where(x => !x.IsCorrupted)];
-
         public bool SupportChainCraft { get; } = true;
-
-        public List<InventoryItemData> GetConditionsItems(Func<InventoryItemData, bool> condition)
+        private IEnumerable<ItemData> GetItems()
         {
-            return [.. Items.Where(condition)];
+            var inventory = _core.GameController.IngameState.IngameUi.InventoryPanel[InventoryIndex.PlayerInventory];
+            if (inventory == null) yield break;
+
+            foreach (var itemElement in inventory.VisibleInventoryItems)
+            {
+                var entity = itemElement.Entity;
+                if (entity == null || entity.Address == 0) continue;
+
+                var baseComp = entity.GetComponent<Base>();
+                var stack = entity.GetComponent<Stack>();
+
+                yield return new ItemData(
+                    entity.Address,
+                    baseComp?.Name ?? string.Empty,
+                    stack?.Size ?? 1,
+                    itemElement.GetClientRectCache
+                );
+            }
         }
 
         #region ICurrencyPlace Implementation
@@ -53,8 +62,7 @@ namespace RegexCrafter.Places
                 GlobalLog.Error("Currency name cannot be null or empty.", "PlayerInventory");
                 return SyncTask.FromResult(false);
             }
-
-            return SyncTask.FromResult(Items.Any(x => x.BaseName.Contains(currency) || x.BaseName == currency));
+            return SyncTask.FromResult(GetItems().Any(x => x.BaseName.Contains(currency) || x.BaseName == currency));
         }
 
         public bool HasCurrency(string currency)
@@ -65,73 +73,52 @@ namespace RegexCrafter.Places
                 return false;
             }
 
-            if (Items.Count == 0)
-            {
-                GlobalLog.Error("Player inventory is empty.", "PlayerInventory");
-                return false;
-            }
-
             if (string.IsNullOrEmpty(currency))
             {
                 GlobalLog.Error("Currency name cannot be null or empty.", "PlayerInventory");
                 return false;
             }
 
-            return Items.Any(x => x.BaseName.Contains(currency) || x.BaseName == currency);
+            return GetItems().Any(x => x.BaseName.Contains(currency) || x.BaseName == currency);
         }
-
-        public async SyncTask<(bool, int)> TakeCurrencyForUseAsync(string currency)
+        public async SyncTask<bool> TakeCurrencyForUseAsync(string currency)
         {
-            if (string.IsNullOrEmpty(currency))
+
+            RectangleF? clickRect = null;
+
+            foreach (var item in GetItems())
             {
-                GlobalLog.Error("Currency name cannot be null or empty.", "PlayerInventory");
-                return (false, 0);
+                if (item.BaseName.Contains(currency, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (clickRect == null)
+                    {
+                        clickRect = item.ClickRect;
+                        break;
+                    }
+                }
             }
-
-            var currencyItems = Items.Where(x => x.BaseName.Contains(currency, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (currencyItems.Count == 0)
-            {
-                GlobalLog.Error($"No {currency} found in player inventory.", "PlayerInventory");
-                return (false, 0);
-            }
-
-            var totalCount = currencyItems.Sum(x => x.StackSize);
-            var item = currencyItems.First();
-            if (item is null)
+            if (clickRect == null)
             {
                 GlobalLog.Error($"No {currency} found in player inventory.", "PlayerInventory");
-                return (false, 0);
+                return false;
             }
 
-            if (!await item.MoveAndTakeForUse())
+            if (!await _core.Input.MoveMouseToScreenPosition(clickRect.Value))
             {
-                GlobalLog.Error($"Failed to move {currency} for use.", "PlayerInventory");
-                return (false, 0);
+                return false;
             }
 
-            return (true, totalCount);
+            return await _core.Input.Click();
         }
 
         #endregion
 
         #region ICraftingPlace Implementation
 
-        public SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync(
-            Func<InventoryItemData, bool> conditionUse)
-        {
-            if (Items is null)
-            {
-                return SyncTask.FromResult<(bool Succes, List<InventoryItemData> Items)>((false, []));
-            }
 
-            return SyncTask.FromResult((true, Items.Where(conditionUse).ToList()));
-        }
-
-        public SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync()
+        public SyncTask<GetItemsResult> GetItemsAsync()
         {
-            return TryGetItemsAsync(_ => true);
+            return SyncTask.FromResult(new GetItemsResult(true, GetItems().ToList()));
         }
 
         public SyncTask<bool> PrepareCraftingPlace()

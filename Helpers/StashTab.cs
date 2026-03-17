@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using ExileCore.PoEMemory;
+﻿using ExileCore.PoEMemory;
+using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.Elements;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using RegexCrafter.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RegexCrafter.Helpers
 {
@@ -26,6 +27,28 @@ namespace RegexCrafter.Helpers
         public List<InventoryItemData> VisibleItems => Inventory?.VisibleInventoryItems
             .Where(x => x != null && x.Type == ElementType.InventoryItem).Select(x => new InventoryItemData(x)).ToList();
 
+        public IEnumerable<ItemData> GetItems()
+        {
+            if (!IsVisible) yield break;
+            var inventory = Inventory;
+            if (inventory == null) yield break;
+
+            foreach (var itemElement in inventory.VisibleInventoryItems)
+            {
+                var entity = itemElement.Entity;
+                if (entity == null || entity.Address == 0) continue;
+
+                var baseComp = entity.GetComponent<Base>();
+                var stack = entity.GetComponent<Stack>();
+
+                yield return new ItemData(
+                    entity.Address,
+                    baseComp?.Name ?? string.Empty,
+                    stack?.Size ?? 1,
+                    itemElement.GetClientRectCache
+                );
+            }
+        }
         public bool IsPublic => core.GameController.Game.IngameState.ServerData.PlayerStashTabs
             .First(x => x.Name == TabName)
             .Flags.HasFlag(InventoryTabFlags.Public);
@@ -201,11 +224,11 @@ namespace RegexCrafter.Helpers
 
             Element button = null;
             if (currentCurrencyTabType ==
-                CurrencyTabType.General && !TryGetCurrencySwitchButton(CurrencyTabType.Exotic, out button))
+                CurrencyTabType.General && !TryGetCurrencySwitchButton(CurrencyTabType.Atlas, out button))
             {
                 return false;
             }
-            if (currentCurrencyTabType == CurrencyTabType.Exotic &&
+            if (currentCurrencyTabType == CurrencyTabType.Atlas &&
                 !TryGetCurrencySwitchButton(CurrencyTabType.General, out button))
             {
                 return false;
@@ -236,7 +259,7 @@ namespace RegexCrafter.Helpers
             }
             if (Inventory.Children[2].IsVisible)
             {
-                return CurrencyTabType.Exotic;
+                return CurrencyTabType.Atlas;
             }
             return CurrencyTabType.None;
         }

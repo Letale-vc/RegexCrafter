@@ -29,7 +29,7 @@ namespace RegexCrafter.Services
                 return regex;
             }
 
-            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled);
             RegexCache[pattern] = regex;
             return regex;
         }
@@ -51,23 +51,19 @@ namespace RegexCrafter.Services
         /// <summary>
         ///     Parses a pattern string into exclude, include, and single include patterns
         /// </summary>
-        public static (List<string> Exclude, List<string> Include, List<string> SingleInclude) ParsePattern(
+        public static (string[] Exclude, string[] Include, string[] SingleInclude) ParsePattern(
             string sourceRegex)
         {
             ArgumentNullException.ThrowIfNull(sourceRegex);
 
-            var tokens = GetTokenRegex()
-                .Matches(sourceRegex)
-                .Select(m => m.Value)
-                .ToArray();
+            var matches = GetTokenRegex().Matches(sourceRegex);
+            var exclude = new List<string>(matches.Count);
+            var include = new List<string>(matches.Count);
+            var singleInclude = new List<string>(matches.Count);
 
-            var exclude = new List<string>();
-            var include = new List<string>();
-            var singleInclude = new List<string>();
-
-            foreach (var token in tokens)
+            foreach (Match match in matches)
             {
-                var part = token.Trim('"');
+                var part = match.Value.Trim('"');
                 if (part.StartsWith('!'))
                 {
                     exclude.Add(part[1..]);
@@ -82,7 +78,7 @@ namespace RegexCrafter.Services
                 }
             }
 
-            return (exclude, include, singleInclude);
+            return (exclude.ToArray(), include.ToArray(), singleInclude.ToArray());
         }
 
         #endregion
@@ -122,21 +118,21 @@ namespace RegexCrafter.Services
             ArgumentNullException.ThrowIfNull(lines);
             ArgumentNullException.ThrowIfNull(patternsLineText);
 
-            var linesList = lines.ToList();
+            var linesArray = lines as string[] ?? lines.ToArray();
             var (exclude, include, singleInclude) = ParsePattern(patternsLineText);
 
-            if (exclude.Count == 0 && include.Count == 0 && singleInclude.Count == 0)
+            if (exclude.Length == 0 && include.Length == 0 && singleInclude.Length == 0)
             {
                 GlobalLog.Error($"Regex pattern is empty: {patternsLineText}", LogName);
                 throw new ArgumentException("Pattern cannot be empty", nameof(patternsLineText));
             }
 
             // Check exclusions first
-            if (exclude.Count > 0)
+            if (exclude.Length > 0)
             {
-                var result = ContainsAnyPattern(linesList, exclude, out var foundPatterns);
+                var result = ContainsAnyPattern(linesArray, exclude, out var foundPatterns);
                 GlobalLog.Info(
-                    $"Excluded: need find {foundPatterns.Count}/{exclude.Count} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
+                    $"Excluded: need find {foundPatterns.Length}/{exclude.Length} \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
                     LogName);
                 if (result)
                 {
@@ -145,24 +141,24 @@ namespace RegexCrafter.Services
             }
 
             // Check single inclusion patterns
-            if (singleInclude.Count > 0)
+            if (singleInclude.Length > 0)
             {
-                var result = ContainsAnyPattern(linesList, singleInclude, out var foundPatterns);
+                var result = ContainsAnyPattern(linesArray, singleInclude, out var foundPatterns);
                 GlobalLog.Info(
-                    $"Include Only one: need find {foundPatterns.Count}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
+                    $"Include Only one: need find {foundPatterns.Length}/1 \n Found excluded patterns: [{string.Join(", ", foundPatterns)}]",
                     LogName);
-                if (result && foundPatterns.Count > 1)
+                if (result && foundPatterns.Length > 1)
                 {
                     return false;
                 }
             }
 
             // Check required inclusion patterns
-            if (include.Count > 0)
+            if (include.Length > 0)
             {
-                var result = ContainsAllPatterns(linesList, include, out var foundPatterns);
+                var result = ContainsAllPatterns(linesArray, include, out var foundPatterns);
                 GlobalLog.Info(
-                    $"Include: need find {foundPatterns.Count}/{include.Count} \n Found include patterns: [{string.Join(", ", foundPatterns)}]",
+                    $"Include: need find {foundPatterns.Length}/{include.Length} \n Found include patterns: [{string.Join(", ", foundPatterns)}]",
                     LogName);
                 return result;
             }
@@ -170,7 +166,7 @@ namespace RegexCrafter.Services
             return true;
         }
 
-        private static bool ContainsAnyPattern(string text, IEnumerable<string> patterns, out List<string> foundPatterns)
+        private static bool ContainsAnyPattern(string text, string[] patterns, out string[] foundPatterns)
         {
             ArgumentNullException.ThrowIfNull(text);
             ArgumentNullException.ThrowIfNull(patterns);
@@ -179,19 +175,29 @@ namespace RegexCrafter.Services
             return ContainsAnyPattern(lines, patterns, out foundPatterns);
         }
 
-        private static bool ContainsAnyPattern(IEnumerable<string> lines, IEnumerable<string> patterns,
-            out List<string> foundPatterns)
+        private static bool ContainsAnyPattern(string[] lines, string[] patterns, out string[] foundPatterns)
         {
             ArgumentNullException.ThrowIfNull(lines);
             ArgumentNullException.ThrowIfNull(patterns);
 
-            foundPatterns = patterns
-                .Where(p => lines.Any(line => LineMatches(line, p)))
-                .ToList();
-            return foundPatterns.Count > 0;
+            var found = new List<string>(patterns.Length);
+            foreach (var pattern in patterns)
+            {
+                foreach (var line in lines)
+                {
+                    if (IsMatch(line, pattern))
+                    {
+                        found.Add(pattern);
+                        break;
+                    }
+                }
+            }
+
+            foundPatterns = found.ToArray();
+            return foundPatterns.Length > 0;
         }
 
-        private static bool ContainsAllPatterns(string text, IEnumerable<string> patterns, out List<string> foundPatterns)
+        private static bool ContainsAllPatterns(string text, string[] patterns, out string[] foundPatterns)
         {
             ArgumentNullException.ThrowIfNull(text);
             ArgumentNullException.ThrowIfNull(patterns);
@@ -200,28 +206,40 @@ namespace RegexCrafter.Services
             return ContainsAllPatterns(lines, patterns, out foundPatterns);
         }
 
-        private static bool ContainsAllPatterns(IEnumerable<string> lines, IEnumerable<string> patterns,
-            out List<string> foundPatterns)
+        private static bool ContainsAllPatterns(string[] lines, string[] patterns, out string[] foundPatterns)
         {
             ArgumentNullException.ThrowIfNull(lines);
             ArgumentNullException.ThrowIfNull(patterns);
 
-            foundPatterns = new List<string>();
-            var patternsList = patterns.ToList();
-            if (patternsList.Count == 0)
+            if (patterns.Length == 0)
             {
+                foundPatterns = [];
                 return false;
             }
 
-            foreach (var pattern in patternsList)
+            var found = new List<string>(patterns.Length);
+            foreach (var pattern in patterns)
             {
-                if (!lines.Any(line => LineMatches(line, pattern)))
+                bool patternFound = false;
+                foreach (var line in lines)
                 {
+                    if (IsMatch(line, pattern))
+                    {
+                        patternFound = true;
+                        break;
+                    }
+                }
+
+                if (!patternFound)
+                {
+                    foundPatterns = found.ToArray();
                     return false;
                 }
-                foundPatterns.Add(pattern);
+
+                found.Add(pattern);
             }
 
+            foundPatterns = found.ToArray();
             return true;
         }
 
@@ -240,8 +258,7 @@ namespace RegexCrafter.Services
             ArgumentNullException.ThrowIfNull(line);
             ArgumentNullException.ThrowIfNull(pattern);
 
-            var subLines = SplitLines(line);
-            return subLines.Any(l => IsMatch(l, pattern));
+            return IsMatch(line, pattern);
         }
 
         private static string NormalizeText(string input)

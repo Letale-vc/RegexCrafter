@@ -4,6 +4,7 @@ namespace RegexCrafter.Enums
     {
         Continue,
         Skip,
-        Complete
+        Complete,
+        NoValid
     }
 }

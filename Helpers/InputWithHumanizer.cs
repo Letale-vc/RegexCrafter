@@ -1,13 +1,13 @@
-﻿using System;
-using System.Threading;
-using System.Windows.Forms;
-using ExileCore;
+﻿using ExileCore;
 using ExileCore.Shared;
 using ExileCore.Shared.Helpers;
 using InputHumanizer.Input;
 using RegexCrafter.Interface;
 using RegexCrafter.Utils;
 using SharpDX;
+using System;
+using System.Threading;
+using System.Windows.Forms;
 using Vector3 = System.Numerics.Vector3;
 
 namespace RegexCrafter.Helpers

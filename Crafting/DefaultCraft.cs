@@ -1,9 +1,9 @@
-using System;
-using System.Linq;
-using System.Numerics;
 using ImGuiNET;
 using RegexCrafter.Enums;
 using RegexCrafter.Helpers;
+using System;
+using System.Linq;
+using System.Numerics;
 
 namespace RegexCrafter.Crafting
 {
@@ -12,7 +12,7 @@ namespace RegexCrafter.Crafting
         public CurrencyMethodCraftType CurrencyMethodCraftType { get; set; } = CurrencyMethodCraftType.Chaos;
     }
 
-    public class DefaultCraft(RegexCrafter core) : CraftBase<DefaultCraftState>(core)
+    public class DefaultCraft : CraftBase<DefaultCraftState>
     {
         private const string BaseUseCondition = "\"!corrupted|currency\"";
 
@@ -25,15 +25,22 @@ namespace RegexCrafter.Crafting
 
         protected override DefaultCraftState CurrentState { get; set; } = new();
         public override string Name { get; } = "Default craft";
+        private readonly string[] _typeMethodCraftNames;
 
+        public DefaultCraft(RegexCrafter core) : base(core)
+        {
+            // Инициализируем массив имен один раз при создании объекта
+            _typeMethodCraftNames = _typeMethodCraft.Select(x => x.GetDescription()).ToArray();
+        }
         public override void DrawSettings()
         {
             base.DrawSettings();
-            var selectedMethod = (int)CurrentState.CurrencyMethodCraftType;
-            if (ImGui.Combo("Type Method craft", ref selectedMethod,
-                    _typeMethodCraft.Select(x => x.GetDescription()).ToArray(), _typeMethodCraft.Length))
+            var selectedIndex = Array.IndexOf(_typeMethodCraft, CurrentState.CurrencyMethodCraftType);
+
+            if (ImGui.Combo("Type Method craft", ref selectedIndex,
+                    _typeMethodCraftNames, _typeMethodCraftNames.Length))
             {
-                CurrentState.CurrencyMethodCraftType = (CurrencyMethodCraftType)selectedMethod;
+                CurrentState.CurrencyMethodCraftType = _typeMethodCraft[selectedIndex];
                 ApplyMethodPreset();
             }
 
@@ -51,8 +58,10 @@ namespace RegexCrafter.Crafting
             for (var i = 0; i < CurrentState.Recipe.MainConditions.Count; i++)
             {
                 var patternTemp = CurrentState.Recipe.MainConditions[i];
-                ImGui.InputText($"Your regex pattern {i}", ref patternTemp, 1024);
-                CurrentState.Recipe.MainConditions[i] = patternTemp;
+                if (ImGui.InputText($"Your regex pattern {i}", ref patternTemp, 1024))
+                {
+                    CurrentState.Recipe.MainConditions[i] = patternTemp;
+                }
                 ImGui.SameLine();
                 if (ImGui.Button($"Remove##{i}"))
                 {
@@ -103,26 +112,26 @@ namespace RegexCrafter.Crafting
         private void LoadScouringAndAlchemy()
         {
             CurrentState.Recipe.RemoveAllSteps();
-            var scouringStep = CraftStepFactory.GetScouringStep();
-            var alchemyStep = CraftStepFactory.GetAlchemyStep();
+            var scouringStep = CraftStepFactory.ScouringStep;
+            var alchemyStep = CraftStepFactory.AlchemyStep;
             CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep]);
         }
 
         private void LoadAlterationSpam()
         {
             CurrentState.Recipe.RemoveAllSteps();
-            var onlyRareScouringStep = CraftStepFactory.GetOnlyRareScouringStep();
-            var transmutationStep = CraftStepFactory.GetTransmutationStep();
-            var alterationStep = CraftStepFactory.GetAlterationStep();
+            var onlyRareScouringStep = CraftStepFactory.OnlyRareScouringStep;
+            var transmutationStep = CraftStepFactory.TransmutationStep;
+            var alterationStep = CraftStepFactory.AlterationStep;
             CurrentState.Recipe.AddRangeStep([onlyRareScouringStep, transmutationStep, alterationStep]);
         }
 
         private void LoadChaosSpam()
         {
             CurrentState.Recipe.RemoveAllSteps();
-            var scouringStep = CraftStepFactory.GetOnlyMagicScouringStep();
-            var alchemyStep = CraftStepFactory.GetAlchemyStep();
-            var chaosStep = CraftStepFactory.GetChaosSpamStep();
+            var scouringStep = CraftStepFactory.OnlyMagicScouringStep;
+            var alchemyStep = CraftStepFactory.AlchemyStep;
+            var chaosStep = CraftStepFactory.ChaosSpamStep;
             CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep, chaosStep]);
         }
     }

@@ -1,16 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Windows.Forms;
 using ExileCore.Shared;
 using RegexCrafter.Enums;
 using RegexCrafter.Interface;
-using RegexCrafter.Models;
+using SharpDX;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Windows.Forms;
 using Cursor = ExileCore.PoEMemory.MemoryObjects.Cursor;
 
 namespace RegexCrafter.Helpers
 {
-    public class Scripts(RegexCrafter core)
+    public class Scripts
+        (RegexCrafter core)
     {
         private const string LogName = "Scripts";
         private IInput Input => core.Input;
@@ -19,12 +20,12 @@ namespace RegexCrafter.Helpers
         private ICurrencyPlace CurrencyPlace => core.CurrencyPlace;
         private ICraftingPlace CraftingPlace => core.CraftingPlace;
 
-        public async SyncTask<bool> UseCurrencyToSingleItem(InventoryItemData item, string currency,
-            Func<InventoryItemData, CraftingAction> condition, CancellationToken ct = default)
+        public async SyncTask<bool> UseCurrencyToSingleItem(RectangleF rect, string currency,
+            Func<string, CraftingAction> condition, CancellationToken ct = default)
         {
             try
             {
-                var (success, count) = await CurrencyPlace.TakeCurrencyForUseAsync(currency);
+                var success = await CurrencyPlace.TakeCurrencyForUseAsync(currency);
 
                 if (!success)
                 {
@@ -36,20 +37,40 @@ namespace RegexCrafter.Helpers
                 {
                     return false;
                 }
-                return await ClickUntilCondition(item, condition, count, ct);
+                return await ClickUntilCondition(rect, condition, 5000, ct);
             }
             finally
             {
-                await Input.KeyUp(Keys.LShiftKey, ct);
-                await Input.KeyUp(Keys.LControlKey, ct);
+                Input.CleanKeys();
             }
+        }
+        public async SyncTask<bool> TakeCurrencyForUse(string currencyUseName, bool multiUse = false,
+            CancellationToken ct = default)
+        {
+            var success = await CurrencyPlace.TakeCurrencyForUseAsync(currencyUseName);
+            if (!success)
+            {
+                GlobalLog.Error($"Failed to take {currencyUseName} for use.", LogName);
+                return false;
+            }
+
+            if (multiUse && !await Input.KeyDown(Keys.LShiftKey, ct))
+            {
+                return false;
+            }
+
+            return true;
+        }
+        public void ClearInput()
+        {
+            Input.CleanKeys();
         }
 
         public async SyncTask<bool> UseCurrencyOnMultipleItems(string currencyUseName,
-            Func<InventoryItemData, CraftingAction> condition,
+            Func<string, CraftingAction> condition,
             CancellationToken ct = default)
         {
-            var (success, items) = await CraftingPlace.TryGetItemsAsync();
+            var (success, items) = await CraftingPlace.GetItemsAsync();
             if (!success)
             {
                 return false;
@@ -60,17 +81,17 @@ namespace RegexCrafter.Helpers
                 return false;
             }
 
-            return await UseCurrencyOnMultipleItems(items, currencyUseName, condition, ct);
+            return await UseCurrencyOnMultipleItems(items.Select(item => item.ClickRect).ToArray(), currencyUseName, condition, ct);
         }
 
-        public async SyncTask<bool> UseCurrencyOnMultipleItems(IEnumerable<InventoryItemData> items, string currencyUseName,
-            Func<InventoryItemData, CraftingAction> condition,
+        public async SyncTask<bool> UseCurrencyOnMultipleItems(RectangleF[] positions, string currencyUseName,
+            Func<string, CraftingAction> condition,
             CancellationToken ct = default)
         {
             GlobalLog.Debug($"Start using {currencyUseName} to items.", LogName);
             try
             {
-                var (success, count) = await CurrencyPlace.TakeCurrencyForUseAsync(currencyUseName);
+                var success = await CurrencyPlace.TakeCurrencyForUseAsync(currencyUseName);
 
                 if (!success)
                 {
@@ -89,33 +110,34 @@ namespace RegexCrafter.Helpers
                     return false;
                 }
 
-                foreach (var item in items)
+                for (var i = 0; i < positions.Length; i++)
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    if (!await ClickUntilCondition(item, condition, count, ct))
+                    if (!await ClickUntilCondition(positions[i], condition, 5000, ct))
                     {
                         GlobalLog.Error($"Can't apply {currencyUseName} to item.", LogName);
                         return false;
                     }
                 }
 
+
                 return true;
             }
             finally
             {
-                await Input.KeyUp(Keys.LShiftKey, ct);
-                await Input.KeyUp(Keys.LControlKey, ct);
+                Input.CleanKeys();
             }
         }
 
-        private async SyncTask<bool> ClickUntilCondition(InventoryItemData item,
-            Func<InventoryItemData, CraftingAction> condition,
-            int maxCountClick = 3000, CancellationToken ct = default)
+        public async SyncTask<bool> ClickUntilCondition(RectangleF rect,
+            Func<string, CraftingAction> condition,
+            int maxCountClick = 5000, CancellationToken ct = default)
         {
             var countClick = 0;
-            InventoryItemData oldHoverItem = null;
-            GlobalLog.Debug($"Clicking on item {item} until condition is met.", LogName);
+            long currentAddress = 0;
+
+            GlobalLog.Debug($"Clicking on item until condition is met.", LogName);
             while (CraftingPlace.CanCraft())
             {
                 if (countClick >= maxCountClick)
@@ -128,136 +150,96 @@ namespace RegexCrafter.Helpers
 
                 var cursorGetClientRectCache = Cursor.GetClientRectCache;
                 // Move the mouse to the item
-                if (!item.GetClientRectCache.Contains(cursorGetClientRectCache.Center.X, cursorGetClientRectCache.Center.Y))
+                if (!rect.Contains(cursorGetClientRectCache.TopLeft.X, cursorGetClientRectCache.TopLeft.Y))
                 {
-                    GlobalLog.Debug($"Move mouse to item {item}.", LogName);
-                    await item.MoveMouseToItem();
+                    await Input.MoveMouseToScreenPosition(rect, ct);
                 }
 
                 // Get the initial hovered item
-                if (oldHoverItem == null)
-                {
-                    var (isSuccess, hoveredItem) = await WaitForHoveredItem(
-                        hoverItem => hoverItem.Entity.Address == item.Entity.Address,
-                        "Get the initial hovered item", ct);
-                    if (!isSuccess)
-                    {
-                        GlobalLog.Error("No hovered item found!", LogName);
-                        return false;
-                    }
+                var (ok, _, text) = await GetHoveredItemData(ct);
+                if (!ok) return false;
 
-                    oldHoverItem = hoveredItem;
-                }
+                var craftingAction = condition(text);
 
-                var craftingAction = condition(oldHoverItem);
-
-                switch (craftingAction)
-                {
-                    case CraftingAction.Skip:
-                        GlobalLog.Debug("Item is not valid for crafting, skipping click.", LogName);
-                        return true;
-                    // Check if the item meets the condition after applying currency
-                    case CraftingAction.Complete:
-                        GlobalLog.Info($"Item {item} meets the condition.", LogName);
-                        return true;
-                    case CraftingAction.Continue:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
+                if (craftingAction == CraftingAction.Complete) return true;
+                if (craftingAction == CraftingAction.Skip) return true;
 
 
                 // Apply the currency by clicking
-                GlobalLog.Debug($"Click on item {item}.", LogName);
+                GlobalLog.Debug($"Click on item pos {rect} .", LogName);
                 await Input.Click(ct);
 
-                // Wait for the item to update after applying currency
                 GlobalLog.Debug("Wait for item update after applying currency.", LogName);
-                var (isSuccessAfterClick, updatedHoveredItem) = await WaitForHoveredItem(
-                    hoverItem => hoverItem.Entity.Address != oldHoverItem.Entity.Address,
-                    "Apply currency to item", ct);
+                currentAddress = await WaitAddressChange(currentAddress, ct);
+                if (currentAddress == 0) return false;
 
-                if (!isSuccessAfterClick)
-                {
-                    GlobalLog.Error("No updated hovered item found!", LogName);
-                    return false;
-                }
-
-                GlobalLog.Debug($"Updated hovered item: {updatedHoveredItem}.", LogName);
-                oldHoverItem = updatedHoveredItem;
                 countClick++;
             }
 
             GlobalLog.Debug("Currency is not available or crafting place cannot be used.", LogName);
             return false;
         }
+        public async SyncTask<long> WaitAddressChange(long oldAddress, CancellationToken ct = default)
+        {
+            long resultAddress = 0;
+            await Wait.For(() =>
+            {
+                if (TryGetHoveredItemAddress(out var current) && current != oldAddress)
+                {
+                    resultAddress = current;
+                    return true;
+                }
+                return false;
+            }, "Wait for address change", 500, ct);
 
-        public async SyncTask<(bool isSuccess, InventoryItemData hoveredItem)> WaitForHoveredItem(
-            Func<InventoryItemData, bool> predicate,
-            string operationName, CancellationToken ct = default
-        )
+            return resultAddress;
+        }
+        public async SyncTask<(bool isSuccess, string text)> GetHoverClipboardText(CancellationToken ct = default)
         {
             try
             {
-                InventoryItemData hoveredItem = null;
-
-                var isSuccess = await Wait.For(() =>
-                {
-                    if (!TryGetHoveredItem(out var hoverItem))
-                    {
-                        GlobalLog.Debug("[WaitForHoveredItem] No hovered item found.", LogName);
-                        return false;
-                    }
-
-                    if (!predicate(hoverItem))
-                    {
-                        GlobalLog.Debug($"[WaitForHoveredItem] Hovered item does not match predicate: {hoverItem}.",
-                            LogName);
-                        return false;
-                    }
-
-                    hoveredItem = hoverItem;
-                    return true;
-                }, operationName, 500, ct);
-
-                if (!isSuccess)
-                {
-                    return (false, hoveredItem);
-                }
                 if (!await Input.SimulateKeyEvent(Keys.C, Keys.LControlKey, ct))
                 {
-                    GlobalLog.Error("[WaitForHoveredItem] Failed to simulate Ctrl+C key event.", LogName);
-                    return (false, hoveredItem);
+                    GlobalLog.Error("[GetHoverClipboardText] Failed to simulate Ctrl+C key event.", LogName);
+                    return (false, string.Empty);
                 }
-
                 await Wait.Sleep(50, ct);
+                var text = Clipboard.GetClipboardText();
+                GlobalLog.Debug($"[GetHoverClipboardText] Clipboard text: {text}", LogName);
+                return (true, text);
+            }
+            catch (Exception ex)
+            {
+                GlobalLog.Error($"[GetHoverClipboardText] Exception occurred while getting clipboard text: {ex.Message}", LogName);
+                return (false, string.Empty);
 
-                hoveredItem.ClipboardText = Clipboard.GetClipboardText();
-                hoveredItem.ClipboardText = $"{hoveredItem.ClipboardText}explicit:{hoveredItem.ExplicitModsCount}\n";
-
-                GlobalLog.Debug($"[WaitForHoveredItem] Clipboard text: {hoveredItem.ClipboardText}", LogName);
-
-                return (true, hoveredItem);
             }
             finally
             {
                 await Input.KeyUp(Keys.LControlKey, ct);
             }
         }
-
-        public bool TryGetHoveredItem(out InventoryItemData item)
+        public async SyncTask<(bool success, long address, string text)> GetHoveredItemData(CancellationToken ct = default)
         {
-            item = null;
+            if (!TryGetHoveredItemAddress(out var address))
+                return (false, 0, string.Empty);
+
+            var (isOk, text) = await GetHoverClipboardText(ct);
+            if (!isOk) return (false, 0, string.Empty);
+
+            return (true, address, text);
+        }
+        public bool TryGetHoveredItemAddress(out long address)
+        {
+            address = 0;
             var uiHover = core.GameController.Game.IngameState.UIHoverTooltip;
-            var tooltip = uiHover.Tooltip;
-            var poeEntity = uiHover.Entity;
-            if (tooltip == null || poeEntity == null)
+            if (uiHover.Tooltip == null || uiHover.Entity == null)
             {
                 GlobalLog.Debug("No hovered item found or tooltip is null.", LogName);
                 return false;
             }
 
-            if (poeEntity.Address == 0 && !uiHover.IsValid)
+            if (uiHover.Entity.Address == 0 && !uiHover.IsValid)
             {
                 GlobalLog.Debug("Hovered item is not valid.", LogName);
                 return false;
@@ -269,8 +251,9 @@ namespace RegexCrafter.Helpers
                 return false;
             }
 
-            item = new InventoryItemData(uiHover);
+            address = uiHover.Entity.Address;
             return true;
         }
     }
+
 }

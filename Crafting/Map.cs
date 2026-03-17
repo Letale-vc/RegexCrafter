@@ -20,7 +20,7 @@ namespace RegexCrafter.Crafting
 
         private const string BaseUseCondition = "\"!corrupted\" \"map\"";
 
-        private readonly string[] _chiselList = CurrencyNames.GetChiselNames().ToArray();
+        private readonly string[] _chiselList = [.. CurrencyNames.GetChiselNames()];
 
         private readonly CurrencyMethodCraftType[] _typeMethodCraft =
         [
@@ -132,12 +132,11 @@ namespace RegexCrafter.Crafting
 
             var chiselStep = _chiselList[CurrentState.TypeChisel] switch
             {
-                CurrencyNames.CartographersChisel => CraftStepFactory.GetCartographersChiselStep(),
-                CurrencyNames.ChiselOfAvarice => CraftStepFactory.GetChiselOfAvariceStep(),
-                CurrencyNames.ChiselOfDivination => CraftStepFactory.GetChiselOfDivinationStep(),
-                CurrencyNames.ChiselOfProcurement => CraftStepFactory.GetChiselOfProcurementStep(),
-                CurrencyNames.ChiselOfScarabs => CraftStepFactory.GetChiselOfScarabsStep(),
-                CurrencyNames.ChiselOfProliferation => CraftStepFactory.GetChiselOfProliferationStep(),
+                CurrencyNames.ChiselOfAvarice => CraftStepFactory.ChiselOfAvariceStep,
+                CurrencyNames.ChiselOfDivination => CraftStepFactory.ChiselOfDivinationStep,
+                CurrencyNames.ChiselOfProcurement => CraftStepFactory.ChiselOfProcurementStep,
+                CurrencyNames.ChiselOfScarabs => CraftStepFactory.ChiselOfScarabsStep,
+                CurrencyNames.ChiselOfProliferation => CraftStepFactory.ChiselOfProliferationStep,
                 _ => throw new ArgumentOutOfRangeException()
             };
 
@@ -158,26 +157,26 @@ namespace RegexCrafter.Crafting
         private void LoadScouringAndAlchemy()
         {
             CurrentState.Recipe.RemoveAllSteps();
-            var scouringStep = CraftStepFactory.GetScouringStep();
-            var alchemyStep = CraftStepFactory.GetAlchemyStep();
+            var scouringStep = CraftStepFactory.ScouringStep;
+            var alchemyStep = CraftStepFactory.AlchemyStep;
             CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep]);
         }
 
         private void LoadAlterationSpam()
         {
             CurrentState.Recipe.RemoveAllSteps();
-            var onlyRareScouringStep = CraftStepFactory.GetOnlyRareScouringStep();
-            var transmutationStep = CraftStepFactory.GetTransmutationStep();
-            var alterationStep = CraftStepFactory.GetAlterationStep();
+            var onlyRareScouringStep = CraftStepFactory.OnlyRareScouringStep;
+            var transmutationStep = CraftStepFactory.TransmutationStep;
+            var alterationStep = CraftStepFactory.AlterationStep;
             CurrentState.Recipe.AddRangeStep([onlyRareScouringStep, transmutationStep, alterationStep]);
         }
 
         private void LoadChaosSpam()
         {
             CurrentState.Recipe.RemoveAllSteps();
-            var scouringStep = CraftStepFactory.GetOnlyMagicScouringStep();
-            var alchemyStep = CraftStepFactory.GetAlchemyStep();
-            var chaosStep = CraftStepFactory.GetChaosSpamStep();
+            var scouringStep = CraftStepFactory.OnlyMagicScouringStep;
+            var alchemyStep = CraftStepFactory.AlchemyStep;
+            var chaosStep = CraftStepFactory.ChaosSpamStep;
             CurrentState.Recipe.AddRangeStep([scouringStep, alchemyStep, chaosStep]);
         }
     }

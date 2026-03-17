@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Windows.Forms;
-using ExileCore.PoEMemory.MemoryObjects;
+﻿using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
 using ExileCore.Shared.Enums;
 using RegexCrafter.Helpers;
 using RegexCrafter.Interface;
-using RegexCrafter.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Windows.Forms;
 
 namespace RegexCrafter.Places
 {
@@ -29,14 +28,14 @@ namespace RegexCrafter.Places
         public bool IsVisible => _core.GameController.Game.IngameState.IngameUi.StashElement.IsVisible;
         public string CurrentTabName => CurrentTab.TabName;
 
-        public IList<ServerStashTab> ServerStashTabs => _core.GameController.Game.IngameState.ServerData
+        public IReadOnlyList<ServerStashTab> ServerStashTabs => _core.GameController.Game.IngameState.ServerData
             .PlayerStashTabs.OrderBy(x => x.VisibleIndex).ToList();
 
-        public List<string> AllTabNames => ServerStashTabs
+        public string[] AllTabNames => ServerStashTabs
             .Where(x => x.TabType is InventoryTabType.Currency or InventoryTabType.Essence or InventoryTabType.Delirium
                 or InventoryTabType.Normal
                 or InventoryTabType.Premium or InventoryTabType.Quad).OrderBy(x => x.VisibleIndex).Select(x => x.Name)
-            .ToList();
+            .ToArray();
 
         public StashTab CurrentTab { get; }
 
@@ -204,20 +203,20 @@ namespace RegexCrafter.Places
             return CurrentTab.ContainsItem(currency);
         }
 
-        public async SyncTask<(bool, int)> TakeCurrencyForUseAsync(string currency)
+        public async SyncTask<bool> TakeCurrencyForUseAsync(string currency)
         {
             if (currency.Contains("Delirium Orb"))
             {
                 if (!await SwitchToDeliriumTabAsync())
                 {
                     GlobalLog.Error("Can't switch to delirium tab.", LogName);
-                    return (false, 0);
+                    return false;
                 }
             }
             else if (!await SwitchToCurrencyTabAsync())
             {
                 GlobalLog.Error("Can't switch to currency tab.", LogName);
-                return (false, 0);
+                return false;
             }
 
             var currencyItems = CurrentTab.VisibleItems
@@ -231,7 +230,7 @@ namespace RegexCrafter.Places
                     if (!await CurrentTab.SwitchCurrencyTab())
                     {
                         GlobalLog.Error("Can't switch Currency tab.", LogName);
-                        return (false, 0);
+                        return false;
                     }
 
                     currencyItems = CurrentTab.VisibleItems
@@ -240,31 +239,30 @@ namespace RegexCrafter.Places
                     if (currencyItems.Count == 0)
                     {
                         GlobalLog.Error($"No {currency} found in player inventory.", LogName);
-                        return (false, 0);
+                        return false;
                     }
                 }
                 else
                 {
                     GlobalLog.Error($"No {currency} found in player inventory.", LogName);
-                    return (false, 0);
+                    return false;
                 }
             }
 
-            var totalCount = currencyItems.Sum(x => x.StackSize);
             var item = currencyItems.First();
             if (item is null)
             {
                 GlobalLog.Error($"No {currency} found in player inventory.", LogName);
-                return (false, 0);
+                return false;
             }
 
             if (!await item.MoveAndTakeForUse())
             {
                 GlobalLog.Error($"Failed to move {currency} for use.", LogName);
-                return (false, 0);
+                return false;
             }
 
-            return (true, totalCount);
+            return true;
         }
 
         #endregion
@@ -273,23 +271,19 @@ namespace RegexCrafter.Places
 
         public bool SupportChainCraft { get; } = true;
 
-        public async SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync(
-            Func<InventoryItemData, bool> conditionUse)
+        public async SyncTask<GetItemsResult> GetItemsAsync()
         {
             if (!await SwitchToCraftTabAsync())
             {
-                return (false, []);
+                return new GetItemsResult(false, []);
             }
             if (CurrentTab.VisibleItems is null)
             {
-                return (false, []);
+                return new GetItemsResult(false, []);
             }
-            return (true, CurrentTab.VisibleItems.Where(conditionUse).ToList());
-        }
 
-        public SyncTask<(bool Success, List<InventoryItemData> Items)> TryGetItemsAsync()
-        {
-            return TryGetItemsAsync(_ => true);
+            return new GetItemsResult(true,
+                CurrentTab.GetItems().ToList());
         }
 
         public async SyncTask<bool> PrepareCraftingPlace()

@@ -4,6 +4,7 @@ namespace RegexCrafter.Enums
     {
         None,
         General,
-        Exotic
+        Atlass,
+        League
     }
 }

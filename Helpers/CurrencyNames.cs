@@ -8,7 +8,8 @@ namespace RegexCrafter.Helpers
     {
         None,
         General,
-        Exotic
+        Atlas,
+        League
     }
 
     public static class CurrencyNames
@@ -28,23 +29,21 @@ namespace RegexCrafter.Helpers
 
         [Currency(CurrencyTabType.General)] public const string OrbOfAlchemy = "Orb of Alchemy";
 
-        [Currency(CurrencyTabType.General)] public const string CartographersChisel = "Cartographer's Chisel";
-
         [Currency(CurrencyTabType.General)] public const string ExaltedOrb = "Exalted Orb";
 
         [Currency(CurrencyTabType.General)] public const string DivineOrb = "Divine Orb";
 
         [Currency(CurrencyTabType.General)] public const string ScrollOfWisdom = "Scroll of Wisdom";
 
-        [Currency(CurrencyTabType.Exotic)] public const string ChiselOfAvarice = "Maven's Chisel of Avarice";
+        [Currency(CurrencyTabType.Atlas)] public const string ChiselOfAvarice = "Maven's Chisel of Avarice";
 
-        [Currency(CurrencyTabType.Exotic)] public const string ChiselOfDivination = "Maven's Chisel of Divination";
+        [Currency(CurrencyTabType.Atlas)] public const string ChiselOfDivination = "Maven's Chisel of Divination";
 
-        [Currency(CurrencyTabType.Exotic)] public const string ChiselOfProcurement = "Maven's Chisel of Procurement";
+        [Currency(CurrencyTabType.Atlas)] public const string ChiselOfProcurement = "Maven's Chisel of Procurement";
 
-        [Currency(CurrencyTabType.Exotic)] public const string ChiselOfScarabs = "Maven's Chisel of Scarabs";
+        [Currency(CurrencyTabType.Atlas)] public const string ChiselOfScarabs = "Maven's Chisel of Scarabs";
 
-        [Currency(CurrencyTabType.Exotic)] public const string ChiselOfProliferation = "Maven's Chisel of Proliferation";
+        [Currency(CurrencyTabType.Atlas)] public const string ChiselOfProliferation = "Maven's Chisel of Proliferation";
 
         private static Dictionary<string, CurrencyTabType> _currencyTypeCache;
 
@@ -70,7 +69,7 @@ namespace RegexCrafter.Helpers
                 // get value of field
                 var fieldValue = field.GetValue(null)?.ToString();
                 if (fieldValue != null)
-                    // add to cache
+                // add to cache
                 {
                     _currencyTypeCache[fieldValue] = attribute.CurrencyType;
                 }
@@ -83,7 +82,7 @@ namespace RegexCrafter.Helpers
         {
             return
             [
-                CartographersChisel, ChiselOfProliferation, ChiselOfProcurement,
+                ChiselOfProliferation, ChiselOfProcurement,
                 ChiselOfScarabs, ChiselOfDivination, ChiselOfAvarice
             ];
         }
