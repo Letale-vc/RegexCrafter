@@ -245,12 +245,6 @@ namespace RegexCrafter.Helpers
                 return false;
             }
 
-            if (core.GameController.Files.BaseItemTypes.Translate(uiHover.Entity.Path) == null)
-            {
-                GlobalLog.Debug($"Base item type not found for path: {uiHover.Entity.Path}", LogName);
-                return false;
-            }
-
             address = uiHover.Entity.Address;
             return true;
         }
