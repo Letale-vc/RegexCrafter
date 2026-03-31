@@ -13,11 +13,13 @@ namespace RegexCrafter.Helpers
 
         public bool IsUseCondition(string text)
         {
+            if (string.IsNullOrWhiteSpace(UseCondition)) return true;
             return RegexFinder.ContainsPatternInText(text, UseCondition);
         }
 
         public bool IsStopUseCondition(string text)
         {
+            if (string.IsNullOrWhiteSpace(StopUseCondition)) return false;
             return RegexFinder.ContainsPatternInText(text, StopUseCondition);
         }
     }

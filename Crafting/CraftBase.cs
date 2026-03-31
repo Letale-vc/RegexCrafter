@@ -70,14 +70,14 @@ namespace RegexCrafter.Crafting
                 return;
             }
 
-            foreach (var item in DoneCraftItem.Values)
+            foreach (var rect in DoneRenderRects)
             {
-                _core.Graphics.DrawFrame(item.GetClientRectCache, Color.Green, 2);
+                _core.Graphics.DrawFrame(rect, Color.Green, 2);
             }
 
-            foreach (var item in NoValidItems.Values)
+            foreach (var rect in InvalidItemsRects)
             {
-                _core.Graphics.DrawFrame(item.GetClientRectCache, Color.Red, 2);
+                _core.Graphics.DrawFrame(rect, Color.Red, 2);
             }
         }
 
@@ -140,6 +140,7 @@ namespace RegexCrafter.Crafting
 
         public async SyncTask<bool> Start(CancellationToken ct = default)
         {
+            Clean();
             BeforeStart();
             if (!PreCraftCheck())
             {
@@ -231,7 +232,8 @@ namespace RegexCrafter.Crafting
 
         private bool PreCraftCheck()
         {
-            if (CurrentState.Recipe.MainConditions.Count == 0)
+            if (CurrentState.Recipe.MainConditions.Count == 0 ||
+                CurrentState.Recipe.MainConditions.All(string.IsNullOrWhiteSpace))
             {
                 GlobalLog.Error("Regex pattern is empty.", LogName);
                 return false;

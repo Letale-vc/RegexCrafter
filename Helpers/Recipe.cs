@@ -13,7 +13,9 @@ namespace RegexCrafter.Helpers
 
         public bool IsMainCondition(string text)
         {
-            return MainConditions.Any(condition => RegexFinder.ContainsPatternInText(text, condition));
+            return MainConditions
+                .Where(condition => !string.IsNullOrWhiteSpace(condition))
+                .Any(condition => RegexFinder.ContainsPatternInText(text, condition));
         }
 
         public void ResetAll()
@@ -94,6 +96,7 @@ namespace RegexCrafter.Helpers
         }
         public bool IsBaseUseCondition(string text)
         {
+            if (string.IsNullOrWhiteSpace(BaseUseCondition)) return true;
             return RegexFinder.ContainsPatternInText(text, BaseUseCondition);
         }
     }
